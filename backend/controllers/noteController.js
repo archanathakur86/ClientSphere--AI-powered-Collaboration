@@ -2,6 +2,7 @@ import asyncHandler from "express-async-handler";
 import Note from "../models/Note.js";
 import { generateTags, checkDuplicateNote, explainText, suggestImprovements } from "../services/groqService.js";
 import { logActivity } from "./projectController.js";
+import { loadProjectForUser } from "../middleware/projectAccess.js";
 
 // @route POST /api/projects/:projectId/notes
 export const createNote = asyncHandler(async (req, res) => {
@@ -57,6 +58,8 @@ export const updateNote = asyncHandler(async (req, res) => {
     res.status(404);
     throw new Error("Note not found");
   }
+  await loadProjectForUser(res, note.project, req.user, ["owner", "editor"]);
+
   const { title, content } = req.body;
   if (title) note.title = title;
   if (content !== undefined) note.content = content;
@@ -80,6 +83,8 @@ export const deleteNote = asyncHandler(async (req, res) => {
     res.status(404);
     throw new Error("Note not found");
   }
+  await loadProjectForUser(res, note.project, req.user, ["owner", "editor"]);
+
   await note.deleteOne();
   res.json({ success: true, message: "Note deleted" });
 });
@@ -91,6 +96,8 @@ export const explainNote = asyncHandler(async (req, res) => {
     res.status(404);
     throw new Error("Note not found");
   }
+  await loadProjectForUser(res, note.project, req.user);
+
   const explanation = await explainText(note.content, "note");
   res.json({ success: true, explanation });
 });
@@ -102,6 +109,8 @@ export const improveNote = asyncHandler(async (req, res) => {
     res.status(404);
     throw new Error("Note not found");
   }
+  await loadProjectForUser(res, note.project, req.user, ["owner", "editor"]);
+
   const suggestions = await suggestImprovements(note.content);
   res.json({ success: true, suggestions });
 });

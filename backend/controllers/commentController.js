@@ -1,5 +1,6 @@
 import asyncHandler from "express-async-handler";
 import Comment from "../models/Comment.js";
+import { loadProjectForUser } from "../middleware/projectAccess.js";
 
 // @route GET /api/projects/:projectId/comments
 export const getComments = asyncHandler(async (req, res) => {
@@ -34,9 +35,12 @@ export const deleteComment = asyncHandler(async (req, res) => {
     res.status(404);
     throw new Error("Comment not found");
   }
-  if (comment.author.toString() !== req.user._id.toString()) {
+  const { project } = await loadProjectForUser(res, comment.project, req.user);
+  const isAuthor = comment.author.toString() === req.user._id.toString();
+  const isOwner = project.owner.toString() === req.user._id.toString();
+  if (!isAuthor && !isOwner) {
     res.status(403);
-    throw new Error("You can only delete your own comments");
+    throw new Error("You do not have permission to delete this comment");
   }
   await comment.deleteOne();
   res.json({ success: true, message: "Comment deleted" });

@@ -16,12 +16,12 @@ export const loadProjectForUser = async (res, projectId, user, allowedRoles = nu
   const project = await Project.findById(projectId);
   if (!project) {
     res.status(404);
-    throw new Error("Project not found");
+    throw new Error("Resource not found");
   }
   const role = getUserRole(project, user._id);
   if (!role) {
-    res.status(403);
-    throw new Error("You are not a member of this project");
+    res.status(404);
+    throw new Error("Resource not found");
   }
   if (allowedRoles && !allowedRoles.includes(role)) {
     res.status(403);
