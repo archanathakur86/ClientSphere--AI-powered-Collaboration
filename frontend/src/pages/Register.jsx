@@ -26,7 +26,7 @@ export default function Register() {
   try {
     const res = await api.post("/auth/register", form);
     login(res.data.user, res.data.token);
-    toast.success(`Welcome to WhySo, ${res.data.user.name}!`);
+    toast.success(`Welcome to ClientSphere, ${res.data.user.name}!`);
     navigate("/");
   } catch (err) {
     toast.error(err.response?.data?.message || "Registration failed");

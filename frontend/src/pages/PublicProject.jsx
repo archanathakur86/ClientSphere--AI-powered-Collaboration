@@ -59,7 +59,7 @@ export default function PublicProject() {
       )}
 
       <p className="text-center text-xs text-slate-400 mt-10">
-        Powered by <span className="font-semibold text-brand-600">WhySo</span>
+        Powered by <span className="font-semibold text-brand-600">ClientSphere</span>
       </p>
     </div>
   );

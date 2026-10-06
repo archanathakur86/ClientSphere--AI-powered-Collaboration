@@ -11,7 +11,7 @@ import {
 } from "../services/uploadService.js";
 import { explainCode, reviewCodeDiff } from "../services/groqService.js";
 import { logActivity } from "./projectController.js";
-import { loadProjectForUser } from "../utils/projectAccess.js";
+import { loadProjectForUser } from "../middleware/projectAccess.js";
 import { buildLineDiff, isSameContent } from "../utils/lineDiff.js";
 
 const MAX_TEXT_CHARS = 20000; // stored per file for diffing / AI
@@ -53,7 +53,7 @@ export const uploadFile = asyncHandler(async (req, res) => {
 
   let uploadResult;
   try {
-    uploadResult = await uploadBufferToCloudinary(buffer, `whyso/${req.project._id}`);
+    uploadResult = await uploadBufferToCloudinary(buffer, `clientsphere/${req.project._id}`);
   } catch (err) {
     res.status(502);
     throw new Error("File storage upload failed. Please try again.");

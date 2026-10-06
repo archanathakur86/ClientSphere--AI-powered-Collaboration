@@ -42,7 +42,7 @@ export const explainText = async (content, kind = "note") => {
     {
       role: "system",
       content:
-      "You are a precise technical writing assistant embedded in a developer collaboration tool called WhySo. Explain content clearly and concisely for developers. Use short paragraphs or bullet points. Do not pad with fluff.",
+      "You are a precise technical writing assistant embedded in a workspace tool called ClientSphere. Explain content clearly and concisely. Use short paragraphs or bullet points. Do not pad with fluff.",
     },
     {
       role: "user",

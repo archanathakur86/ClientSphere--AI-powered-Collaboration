@@ -10,8 +10,8 @@ export default function Navbar() {
     <header className="bg-white border-b border-slate-200 sticky top-0 z-20">
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2 font-bold text-brand-700 text-lg">
-          <span className="w-8 h-8 rounded-lg bg-brand-600 text-white flex items-center justify-center">WS</span>
-          WhySo
+          <span className="w-8 h-8 rounded-lg bg-brand-600 text-white flex items-center justify-center font-bold text-xs">CS</span>
+          ClientSphere
         </Link>
         <div className="flex items-center gap-4">
           <span className="text-sm text-slate-600 hidden sm:block">Hi, {user?.name}</span>

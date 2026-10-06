@@ -1,7 +1,7 @@
 {
-  "name": "why-so-backend",
+  "name": "clientsphere-backend",
   "version": "1.0.0",
-  "description": "WhySo backend - AI powered developer collaboration platform",
+  "description": "ClientSphere backend - AI powered workspace for freelancers and clients",
   "main": "server.js",
   "type": "module",
   "scripts": {

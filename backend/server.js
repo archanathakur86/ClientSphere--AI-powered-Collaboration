@@ -36,7 +36,7 @@ app.use((req, res, next) => {
 });
 
 app.get("/", (req, res) => {
-  res.json({ success: true, message: "WhySo API is running" });
+  res.json({ success: true, message: "ClientSphere API is running" });
 });
 app.get("/health", (req, res) => {
   res.status(200).send("ok");
@@ -75,5 +75,5 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
-  console.log(`WhySo backend running on port ${PORT}`);
+  console.log(`ClientSphere backend running on port ${PORT}`);
 });

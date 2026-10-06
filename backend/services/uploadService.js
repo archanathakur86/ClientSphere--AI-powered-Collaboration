@@ -29,7 +29,7 @@ export const getExtension = (filename = "") => filename.split(".").pop()?.toLowe
 export const contentTypeFor = (ext = "") =>
   INLINE_MIME[ext] || (TEXT_EXTENSIONS.includes(ext) ? "text/plain; charset=utf-8" : "application/octet-stream");
 
-export const uploadBufferToCloudinary = (buffer, folder = "whyso") => {
+export const uploadBufferToCloudinary = (buffer, folder = "clientsphere") => {
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
       { folder, resource_type: "auto" },

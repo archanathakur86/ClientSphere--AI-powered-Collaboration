@@ -1,6 +1,6 @@
-# WhySo
+# ClientSphere
 
-AI-powered developer collaboration platform — a mini GitHub + Notion, supercharged with **Groq AI** (Llama models). Built as a placement-ready full-stack capstone project.
+AI-powered workspace for freelancers and their clients — supercharged with **Groq AI** (Llama models). Built as a placement-ready full-stack capstone project.
 
 ## Features
 
@@ -51,7 +51,7 @@ A ChatGPT-style floating assistant, built with the **Web Speech API**:
 ##  Project Structure
 
 ```
-WhySo/
+ClientSphere/
 ├── backend/
 │   ├── config/          # db.js, cloudinary.js
 │   ├── models/          # User, Project, Note, FileItem, Conversation, Task

@@ -11,7 +11,7 @@ import {
   extractActionItems,
 } from "../services/groqService.js";
 import { logActivity } from "./projectController.js";
-import { loadProjectForUser } from "../utils/projectAccess.js";
+import { loadProjectForUser } from "../middleware/projectAccess.js";
 
 const TASK_STATUSES = ["todo", "in-progress", "done"];
 const TASK_PRIORITIES = ["low", "medium", "high"];
