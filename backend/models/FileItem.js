@@ -34,9 +34,11 @@ const fileSchema = new mongoose.Schema(
     publicId: { type: String }, // cloudinary public id (for versioning/deletion)
     fileType: { type: String }, // extension e.g. js, py, png
     textContent: { type: String, default: "" }, // extracted text for code/text files, used for diffing + AI
+    embedding: [{ type: Number }],
     version: { type: Number, default: 1 },
     previousVersionId: { type: mongoose.Schema.Types.ObjectId, ref: "FileItem", default: null },
     review: { type: reviewSchema, default: null },
+    isShared: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

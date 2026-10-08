@@ -26,7 +26,7 @@ const groupConversations = (list) => {
   return groups.filter((g) => g.items.length > 0);
 };
 
-export default function VoiceAssistant() {
+export default function VoiceAssistant({ projectId = null }) {
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -163,6 +163,7 @@ export default function VoiceAssistant() {
       const res = await api.post("/assistant/chat", {
         message,
         ...(conversationId ? { conversationId } : {}),
+        ...(projectId ? { projectId } : {}),
       });
 
       if (sessionRef.current === mySession) {

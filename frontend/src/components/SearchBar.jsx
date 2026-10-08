@@ -4,7 +4,8 @@ import api from "../api/axios.js";
 
 export default function SearchBar({ projectId }) {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState(null);
+  const [answer, setAnswer] = useState("");
+  const [sources, setSources] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
 
@@ -18,10 +19,12 @@ export default function SearchBar({ projectId }) {
     setSearched(true);
     try {
       const res = await api.get(`/projects/${projectId}/ai/search`, { params: { q: query } });
-      setResults(res.data.results);
+      setAnswer(res.data.answer || "");
+      setSources(res.data.sources || []);
     } catch (err) {
       toast.error(err.response?.data?.message || "Search failed");
-      setResults([]);
+      setAnswer("");
+      setSources([]);
     } finally {
       setLoading(false);
     }
@@ -43,19 +46,31 @@ export default function SearchBar({ projectId }) {
 
       {searched && !loading && (
         <div className="space-y-2">
-          {results?.length === 0 ? (
-            <p className="text-slate-500 text-sm">No relevant results found.</p>
+          {answer && (
+            <div className="card bg-indigo-500/10 border-indigo-500/20">
+              <p className="text-xs uppercase tracking-wide text-indigo-400 font-semibold mb-2">AI Answer</p>
+              <p className="text-sm text-slate-300 whitespace-pre-wrap">{answer}</p>
+            </div>
+          )}
+
+          {!answer && sources?.length === 0 ? (
+            <p className="text-slate-400 text-sm">No relevant results found.</p>
           ) : (
-            results?.map((r) => (
-              <div key={r.id} className="card">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs bg-slate-100 px-2 py-0.5 rounded-full uppercase text-slate-500">{r.type}</span>
-                  <h4 className="font-medium">{r.title}</h4>
-                </div>
-                <p className="text-sm text-slate-500 mt-1">{r.snippet}...</p>
-                <p className="text-xs text-brand-600 mt-2 italic">Why it matches: {r.reason}</p>
+            sources?.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs uppercase tracking-wide text-slate-400 font-semibold">Sources</p>
+                {sources.map((source) => (
+                  <div key={source.id} className="card">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs bg-slate-800 px-2 py-0.5 rounded-full uppercase text-slate-400">{source.type}</span>
+                      <h4 className="font-medium">{source.title}</h4>
+                    </div>
+                    <p className="text-sm text-slate-400 mt-1">{source.snippet}...</p>
+                    {source.sourceRef && <p className="text-xs text-indigo-400 mt-2 italic">{source.sourceRef}</p>}
+                  </div>
+                ))}
               </div>
-            ))
+            )
           )}
         </div>
       )}

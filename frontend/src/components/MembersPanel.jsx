@@ -100,9 +100,9 @@ export default function MembersPanel({ project, currentUserId, onUpdated }) {
         )}
 
         {isOwner && (
-          <div className="mt-4 text-xs text-slate-500 bg-slate-50 rounded-lg p-3 space-y-1">
-            <p><span className="font-medium text-slate-700">Editor</span> — can create/edit notes, upload files, and comment.</p>
-            <p><span className="font-medium text-slate-700">Viewer</span> — can view everything and comment, but can't edit.</p>
+          <div className="mt-4 text-xs text-slate-400 bg-slate-950 rounded-lg p-3 space-y-1">
+            <p><span className="font-medium text-slate-300">Editor</span> — can create/edit notes, upload files, and comment.</p>
+            <p><span className="font-medium text-slate-300">Viewer</span> — can view everything and comment, but can't edit.</p>
           </div>
         )}
       </div>
@@ -110,14 +110,14 @@ export default function MembersPanel({ project, currentUserId, onUpdated }) {
       {isOwner && (
         <div className="card">
           <h4 className="font-semibold mb-2">Public Sharing</h4>
-          <p className="text-sm text-slate-500 mb-3">
+          <p className="text-sm text-slate-400 mb-3">
             Make this project's README and notes viewable via a public read-only link.
           </p>
           <button className="btn btn-secondary text-sm" onClick={toggleVisibility}>
             {project.isPublic ? "Make Private" : "Make Public"}
           </button>
           {project.isPublic && publicUrl && (
-            <div className="mt-3 flex items-center gap-2 text-sm bg-slate-50 border border-slate-200 rounded-lg p-2">
+            <div className="mt-3 flex items-center gap-2 text-sm bg-slate-950 border border-slate-800 rounded-lg p-2">
               <a
                 href={publicUrl}
                 target="_blank"
@@ -126,14 +126,14 @@ export default function MembersPanel({ project, currentUserId, onUpdated }) {
                   e.preventDefault();
                   copyPublicUrl(publicUrl);
                 }}
-                className="text-brand-600 hover:underline break-all flex-1"
+                className="text-indigo-400 hover:underline break-all flex-1"
                 title="Click to open, double-click to copy"
               >
                 {publicUrl}
               </a>
               <button
                 onClick={() => copyPublicUrl(publicUrl)}
-                className="flex-shrink-0 p-1.5 rounded-md hover:bg-slate-200 text-slate-500 hover:text-brand-600"
+                className="flex-shrink-0 p-1.5 rounded-md hover:bg-slate-200 text-slate-400 hover:text-brand-600"
                 title="Copy link"
                 aria-label="Copy public link"
               >

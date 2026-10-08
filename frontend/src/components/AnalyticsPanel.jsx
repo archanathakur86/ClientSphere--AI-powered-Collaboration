@@ -15,7 +15,7 @@ export default function AnalyticsPanel({ projectId }) {
       .finally(() => setLoading(false));
   }, [projectId]);
 
-  if (loading) return <p className="text-slate-500">Loading analytics...</p>;
+  if (loading) return <p className="text-slate-400">Loading analytics...</p>;
   if (!data) return null;
 
   const chartData = data.contribution.map((c) => ({
@@ -28,12 +28,12 @@ export default function AnalyticsPanel({ projectId }) {
     <div className="space-y-4">
       <div className="grid sm:grid-cols-2 gap-4">
         <div className="card">
-          <p className="text-sm text-slate-500">Total Notes</p>
-          <p className="text-3xl font-bold text-brand-700">{data.totals.notes}</p>
+          <p className="text-sm text-slate-400">Total Notes</p>
+          <p className="text-3xl font-bold text-indigo-300">{data.totals.notes}</p>
         </div>
         <div className="card">
-          <p className="text-sm text-slate-500">Total Files</p>
-          <p className="text-3xl font-bold text-brand-700">{data.totals.files}</p>
+          <p className="text-sm text-slate-400">Total Files</p>
+          <p className="text-3xl font-bold text-indigo-300">{data.totals.files}</p>
         </div>
       </div>
 
@@ -58,7 +58,7 @@ export default function AnalyticsPanel({ projectId }) {
         ) : (
           <ul className="space-y-2 text-sm">
             {data.recentActivity.map((a, i) => (
-              <li key={i} className="text-slate-600 border-b border-slate-100 pb-1 last:border-0">
+              <li key={i} className="text-slate-400 border-b border-slate-800 pb-1 last:border-0">
                 <span className="font-medium">{a.action?.replace(/_/g, " ")}</span>
                 {a.detail ? ` — ${a.detail}` : ""}
                 <span className="text-xs text-slate-400 ml-2">{new Date(a.createdAt).toLocaleString()}</span>

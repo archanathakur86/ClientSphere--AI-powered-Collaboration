@@ -2,8 +2,9 @@ import React, { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import toast from "react-hot-toast";
 import api from "../api/axios.js";
+import ShareToggle from "./ShareToggle.jsx";
 
-function NoteCard({ note, onDeleted, onUpdated }) {
+function NoteCard({ note, canEdit, onDeleted, onUpdated }) {
   const [aiResult, setAiResult] = useState(null);
   const [aiLabel, setAiLabel] = useState("");
   const [loadingAction, setLoadingAction] = useState(null);
@@ -38,6 +39,17 @@ function NoteCard({ note, onDeleted, onUpdated }) {
       toast.error(err.response?.data?.message || "AI action failed");
     } finally {
       setLoadingAction(null);
+    }
+  };
+
+  const handleShare = async (next) => {
+    try {
+      await api.patch(`/notes/${note._id}/visibility`, { isShared: next });
+      // The endpoint returns an unpopulated note, so only merge the flag (keeps the author name).
+      onUpdated({ ...note, isShared: next });
+      toast.success(next ? "Shared with the client" : "Now internal only");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Couldn't change visibility");
     }
   };
 
@@ -79,7 +91,7 @@ function NoteCard({ note, onDeleted, onUpdated }) {
 
   if (isEditing) {
     return (
-      <div className="card space-y-3 border-brand-200 ring-1 ring-brand-100">
+      <div className="card space-y-3 border-indigo-500/30 ring-1 ring-indigo-500/20">
         <input className="input font-medium" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
         <textarea
           className="input font-mono text-sm"
@@ -112,18 +124,23 @@ function NoteCard({ note, onDeleted, onUpdated }) {
           </p>
         </div>
         <div className="flex items-center gap-3 flex-shrink-0">
-          <button onClick={() => setIsEditing(true)} className="text-xs text-brand-600 hover:underline">
-            Edit
-          </button>
-          <button onClick={() => setConfirmingDelete(true)} className="text-xs text-red-500 hover:underline">
-            Delete
-          </button>
+          <ShareToggle shared={Boolean(note.isShared)} onChange={canEdit ? handleShare : undefined} />
+          {canEdit && (
+            <>
+              <button onClick={() => setIsEditing(true)} className="text-xs text-indigo-400 hover:underline">
+                Edit
+              </button>
+              <button onClick={() => setConfirmingDelete(true)} className="text-xs text-red-400 hover:underline">
+                Delete
+              </button>
+            </>
+          )}
         </div>
       </div>
 
       {confirmingDelete && (
-        <div className="mt-3 bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm flex items-center justify-between gap-3">
-          <p className="text-amber-800">
+        <div className="mt-3 bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-sm flex items-center justify-between gap-3">
+          <p className="text-amber-200">
             ⚠️ This will permanently delete "<span className="font-medium">{note.title}</span>". This action cannot be undone.
           </p>
           <div className="flex gap-2 flex-shrink-0">
@@ -140,7 +157,7 @@ function NoteCard({ note, onDeleted, onUpdated }) {
       {note.tags?.length > 0 && (
         <div className="flex flex-wrap gap-1 mt-2">
           {note.tags.map((t) => (
-            <span key={t} className="text-xs bg-brand-50 text-brand-700 px-2 py-0.5 rounded-full">
+            <span key={t} className="text-xs bg-indigo-500/10 text-indigo-300 px-2 py-0.5 rounded-full">
               #{t}
             </span>
           ))}
@@ -150,7 +167,7 @@ function NoteCard({ note, onDeleted, onUpdated }) {
       <div className={`prose prose-sm max-w-none mt-3 ${expanded ? "" : "line-clamp-4"}`}>
         <ReactMarkdown>{note.content}</ReactMarkdown>
       </div>
-      <button className="text-xs text-brand-600 mt-1" onClick={() => setExpanded((e) => !e)}>
+      <button className="text-xs text-indigo-400 mt-1" onClick={() => setExpanded((e) => !e)}>
         {expanded ? "Show less" : "Show more"}
       </button>
 
@@ -158,32 +175,36 @@ function NoteCard({ note, onDeleted, onUpdated }) {
         <button className="btn btn-secondary text-xs py-1" disabled={loadingAction} onClick={() => runAction("explain")}>
           {loadingAction === "explain" ? "Explaining..." : "🧠 Explain"}
         </button>
-        <button className="btn btn-secondary text-xs py-1" disabled={loadingAction} onClick={() => runAction("improve")}>
-          {loadingAction === "improve" ? "Thinking..." : "✨ Improve"}
-        </button>
-        <button className="btn btn-secondary text-xs py-1" disabled={loadingAction} onClick={() => runAction("tasks")}>
-          {loadingAction === "tasks" ? "Extracting..." : "✅ Extract Tasks"}
-        </button>
+        {canEdit && (
+          <button className="btn btn-secondary text-xs py-1" disabled={loadingAction} onClick={() => runAction("improve")}>
+            {loadingAction === "improve" ? "Thinking..." : "✨ Improve"}
+          </button>
+        )}
+        {canEdit && (
+          <button className="btn btn-secondary text-xs py-1" disabled={loadingAction} onClick={() => runAction("tasks")}>
+            {loadingAction === "tasks" ? "Extracting..." : "✅ Extract Tasks"}
+          </button>
+        )}
       </div>
 
       {aiResult && (
-        <div className="mt-3 bg-brand-50 border border-brand-100 rounded-lg p-3 text-sm">
-          <p className="font-medium text-brand-700 mb-1">{aiLabel}</p>
-          <div className="whitespace-pre-wrap text-slate-700">{aiResult}</div>
+        <div className="mt-3 bg-indigo-500/10 border border-indigo-500/20 rounded-lg p-3 text-sm">
+          <p className="font-medium text-indigo-300 mb-1">{aiLabel}</p>
+          <div className="whitespace-pre-wrap text-slate-300">{aiResult}</div>
         </div>
       )}
     </div>
   );
 }
 
-export default function NotesList({ notes, onDeleted, onUpdated }) {
+export default function NotesList({ notes, canEdit = true, onDeleted, onUpdated }) {
   if (notes.length === 0) {
-    return <div className="card text-center py-8 text-slate-500">No notes yet. Add your first one above.</div>;
+    return <div className="card text-center py-8 text-slate-400">No notes yet. Notes are internal until you share them with the client.</div>;
   }
   return (
     <div className="space-y-3">
       {notes.map((n) => (
-        <NoteCard key={n._id} note={n} onDeleted={onDeleted} onUpdated={onUpdated} />
+        <NoteCard key={n._id} note={n} canEdit={canEdit} onDeleted={onDeleted} onUpdated={onUpdated} />
       ))}
     </div>
   );

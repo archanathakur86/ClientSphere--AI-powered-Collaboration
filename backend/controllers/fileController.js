@@ -9,7 +9,7 @@ import {
   isTextFile,
   getExtension,
 } from "../services/uploadService.js";
-import { explainCode, reviewCodeDiff } from "../services/groqService.js";
+import { explainCode, reviewCodeDiff, generateEmbedding } from "../services/groqService.js";
 import { logActivity } from "./projectController.js";
 import { loadProjectForUser } from "../middleware/projectAccess.js";
 import { buildLineDiff, isSameContent } from "../utils/lineDiff.js";
@@ -67,6 +67,7 @@ export const uploadFile = asyncHandler(async (req, res) => {
     publicId: uploadResult.public_id,
     fileType: ext,
     textContent,
+    embedding: textContent ? await generateEmbedding(`${originalname}\n${textContent}`).catch(() => []) : [],
     version,
     previousVersionId: previousVersion?._id || null,
   });
@@ -90,9 +91,7 @@ export const getFiles = asyncHandler(async (req, res) => {
 // Cloudinary's public URL. This works even when Cloudinary blocks public
 // delivery of PDFs (401 "deny or ACL failure") and keeps access limited to
 // project members.
-export const downloadFile = asyncHandler(async (req, res) => {
-  const { file } = await loadFileForUser(req, res);
-
+const sendStoredFile = async (res, file) => {
   let buffer;
   try {
     buffer = await fetchStoredFile(file);
@@ -112,6 +111,22 @@ export const downloadFile = asyncHandler(async (req, res) => {
     "X-Content-Type-Options": "nosniff",
   });
   res.send(buffer);
+};
+
+export const downloadFile = asyncHandler(async (req, res) => {
+  const { file } = await loadFileForUser(req, res);
+  await sendStoredFile(res, file);
+});
+
+// @route GET /api/client/projects/:projectId/files/:fileId/download
+// A client may only open files of their own project that the freelancer marked as shared.
+export const downloadSharedFileForClient = asyncHandler(async (req, res) => {
+  const file = await FileItem.findOne({ _id: req.params.fileId, project: req.project._id, isShared: true });
+  if (!file) {
+    res.status(404);
+    throw new Error("File not found");
+  }
+  await sendStoredFile(res, file);
 });
 
 // @route DELETE /api/files/:fileId
@@ -203,4 +218,13 @@ export const reviewFile = asyncHandler(async (req, res) => {
   await file.save();
 
   res.json({ success: true, review: file.review, cached: false });
+});
+
+// @route PATCH /api/files/:fileId/visibility
+export const toggleFileVisibility = asyncHandler(async (req, res) => {
+  const { file } = await loadFileForUser(req, res, ["owner", "editor"]);
+  const { isShared } = req.body;
+  file.isShared = Boolean(isShared);
+  await file.save();
+  res.json({ success: true, file });
 });

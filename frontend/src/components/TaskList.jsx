@@ -15,15 +15,15 @@ const PRIORITY_OPTIONS = [
 ];
 
 const STATUS_STYLES = {
-  todo: "bg-slate-100 text-slate-700 border-slate-300",
-  "in-progress": "bg-blue-100 text-blue-700 border-blue-200",
-  done: "bg-green-100 text-green-700 border-green-200",
+  todo: "bg-slate-800 text-slate-300 border-slate-700",
+  "in-progress": "bg-sky-500/10 text-sky-300 border-sky-500/30",
+  done: "bg-emerald-500/10 text-emerald-300 border-emerald-500/30",
 };
 
 const PRIORITY_STYLES = {
-  high: "bg-red-100 text-red-700 border-red-200",
-  medium: "bg-yellow-100 text-yellow-700 border-yellow-200",
-  low: "bg-slate-100 text-slate-600 border-slate-300",
+  high: "bg-red-500/10 text-red-300 border-red-500/30",
+  medium: "bg-yellow-500/10 text-yellow-300 border-yellow-500/30",
+  low: "bg-slate-800 text-slate-400 border-slate-700",
 };
 
 const FILTERS = [{ value: "all", label: "All" }, ...STATUS_OPTIONS];
@@ -86,10 +86,10 @@ export default function TaskList({ projectId }) {
     }
   };
 
-  if (loading) return <p className="text-slate-500">Loading tasks...</p>;
+  if (loading) return <p className="text-slate-400">Loading tasks...</p>;
   if (tasks.length === 0)
     return (
-      <div className="card text-center py-8 text-slate-500">
+      <div className="card text-center py-8 text-slate-400">
         No tasks yet. Use "Extract Tasks" on any note to auto-generate action items.
       </div>
     );
@@ -108,7 +108,7 @@ export default function TaskList({ projectId }) {
           </span>
           <span className="text-slate-400">{percentDone}%</span>
         </div>
-        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+        <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
           <div className="h-full bg-green-500 transition-all" style={{ width: `${percentDone}%` }} />
         </div>
       </div>
@@ -120,8 +120,8 @@ export default function TaskList({ projectId }) {
             onClick={() => setFilter(f.value)}
             className={`text-xs px-3 py-1 rounded-full border transition-colors ${
               filter === f.value
-                ? "bg-brand-600 text-white border-brand-600"
-                : "bg-white text-slate-600 border-slate-300 hover:bg-slate-100"
+                ? "bg-indigo-600 text-white border-indigo-500"
+                : "bg-slate-900 text-slate-400 border-slate-700 hover:bg-slate-800"
             }`}
           >
             {f.label} ({countOf(f.value)})
@@ -130,7 +130,7 @@ export default function TaskList({ projectId }) {
       </div>
 
       {visible.length === 0 && (
-        <div className="card text-center py-6 text-slate-500 text-sm">No tasks in this status.</div>
+        <div className="card text-center py-6 text-slate-400 text-sm">No tasks in this status.</div>
       )}
 
       <div className="space-y-2">

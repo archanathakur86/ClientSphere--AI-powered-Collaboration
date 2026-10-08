@@ -1,11 +1,86 @@
 import Groq from "groq-sdk";
 import dotenv from "dotenv";
+import { pipeline } from "@xenova/transformers";
 dotenv.config();
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 const MODEL = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
 const MODEL_FAST = process.env.GROQ_MODEL_FAST || "llama-3.1-8b-instant";
+
+let embeddingPipeline = null;
+let embeddingLoadPromise = null;
+
+const safeJsonParse = (value, fallback = null) => {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+};
+
+const normalizeVector = (vector = []) => {
+  const values = vector.map((value) => Number(value) || 0);
+  const magnitude = Math.sqrt(values.reduce((sum, value) => sum + value * value, 0)) || 1;
+  return values.map((value) => Number((value / magnitude).toFixed(6)));
+};
+
+const cosineSimilarity = (left = [], right = []) => {
+  const length = Math.min(left.length, right.length);
+  if (!length) return 0;
+  let dot = 0;
+  let leftSq = 0;
+  let rightSq = 0;
+  for (let index = 0; index < length; index += 1) {
+    const l = Number(left[index]) || 0;
+    const r = Number(right[index]) || 0;
+    dot += l * r;
+    leftSq += l * l;
+    rightSq += r * r;
+  }
+  const denom = Math.sqrt(leftSq) * Math.sqrt(rightSq);
+  return denom ? dot / denom : 0;
+};
+
+const getEmbeddingPipeline = async () => {
+  if (embeddingPipeline) return embeddingPipeline;
+  if (!embeddingLoadPromise) {
+    embeddingLoadPromise = pipeline("feature-extraction", process.env.EMBEDDING_MODEL || "Xenova/all-MiniLM-L6-v2").then((loaded) => {
+      embeddingPipeline = loaded;
+      return loaded;
+    });
+  }
+  return embeddingLoadPromise;
+};
+
+const fallbackEmbedding = (text = "") => {
+  const vector = new Array(384).fill(0);
+  const tokens = String(text)
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+  tokens.forEach((token, index) => {
+    let hash = 0;
+    for (let i = 0; i < token.length; i += 1) hash = (hash * 31 + token.charCodeAt(i)) >>> 0;
+    vector[hash % vector.length] += 1 + (index % 3) * 0.1;
+  });
+  return normalizeVector(vector);
+};
+
+export const generateEmbedding = async (text = "") => {
+  const cleanText = String(text || "").trim();
+  if (!cleanText) return [];
+  try {
+    const model = await getEmbeddingPipeline();
+    const output = await model(cleanText, { pooling: "mean", normalize: true });
+    const data = output?.data || output?.tolist?.()?.[0] || [];
+    const vector = Array.isArray(data) ? data : Array.from(data || []);
+    return normalizeVector(vector);
+  } catch (error) {
+    console.warn("Embedding generation failed; falling back to local hash embedding:", error.message);
+    return fallbackEmbedding(cleanText);
+  }
+};
 
 /**
  * Generic chat completion wrapper with error handling + timeout safety.
@@ -222,6 +297,106 @@ export const generateWeeklyReport = async (projectName, activityLogText, { from 
   // Safety net: models sometimes emit <br> despite instructions, and react-markdown would print it literally.
   return report.replace(/<br\s*\/?>/gi, "\n");
 };
+
+export const generatePlainLanguageWeeklyUpdate = async ({ projectName, milestoneSummary = "", taskSummary = "", activitySummary = "" } = {}) => {
+  const messages = [
+    {
+      role: "system",
+      content:
+        "You write short client-friendly weekly updates in plain language. No jargon, no buzzwords, no markdown headings. Base the update only on the provided milestones, tasks, and activity. Return 3 to 5 short sentences, then 1 to 3 bullet points for next steps.",
+    },
+    {
+      role: "user",
+      content: `Project: ${projectName}\n\nMilestones:\n${milestoneSummary || 'None'}\n\nTasks:\n${taskSummary || 'None'}\n\nActivity:\n${activitySummary || 'None'}`,
+    },
+  ];
+  return chatCompletion(messages, { maxTokens: 300 });
+};
+
+export const detectScopeCreep = async ({ comment, milestoneDescriptions = [], taskTitles = [] } = {}) => {
+  const messages = [
+    {
+      role: "system",
+      content:
+        'Decide whether a client request is in scope or out of scope relative to the milestone descriptions. Respond ONLY as JSON: {"verdict":"in scope|out of scope","reason":"one short plain-English reason","suggestedReply":"a polite reply the freelancer can send"}. Keep it concrete and specific. If uncertain, choose "in scope".',
+    },
+    {
+      role: "user",
+      content: `Client request:\n${comment}\n\nMilestones:\n${milestoneDescriptions.join("\n") || "None"}\n\nOpen tasks:\n${taskTitles.join("\n") || "None"}`,
+    },
+  ];
+  const raw = await chatCompletion(messages, { maxTokens: 220, jsonMode: true, temperature: 0.1 });
+  const parsed = safeJsonParse(raw, {});
+  return {
+    verdict: parsed.verdict === "out of scope" ? "out of scope" : "in scope",
+    reason: String(parsed.reason || (parsed.verdict === "out of scope" ? "The request adds work beyond the current scope." : "The request fits the current scope.")).trim(),
+    suggestedReply: String(
+      parsed.suggestedReply ||
+        (parsed.verdict === "out of scope"
+          ? "Thanks — I can turn this into a change request and quote the extra work."
+          : "Thanks — I can include this in the current milestone.")
+    ).trim(),
+  };
+};
+
+export const answerWithSources = async ({ question, sources = [], projectName = "" } = {}) => {
+  const messages = [
+    {
+      role: "system",
+      content:
+        "Answer the user's question using only the provided sources. Keep it concise and practical. Respond ONLY as JSON: {\"answer\":\"...\",\"sources\":[{\"id\":\"...\",\"title\":\"...\",\"type\":\"note|file|comment\",\"reason\":\"why it matters\"}]}. If the sources do not support the answer, say that clearly and still cite the most relevant sources.",
+    },
+    {
+      role: "user",
+      content: `Project: ${projectName}\nQuestion: ${question}\n\nSources:\n${sources
+        .map((source) => `[${source.id}] (${source.type}) ${source.title}: ${source.snippet}`)
+        .join("\n")}`,
+    },
+  ];
+  const raw = await chatCompletion(messages, { maxTokens: 400, jsonMode: true, temperature: 0.2 });
+  const parsed = safeJsonParse(raw, {});
+  return {
+    answer: String(parsed.answer || "I couldn't find enough evidence to answer that confidently.").trim(),
+    sources: Array.isArray(parsed.sources)
+      ? parsed.sources.slice(0, 5).map((source) => ({
+          id: String(source.id || ""),
+          title: String(source.title || "").trim(),
+          type: String(source.type || "note").trim(),
+          reason: String(source.reason || "").trim(),
+        }))
+      : [],
+  };
+};
+
+export const generateProjectVoiceReply = async ({ userName, question, projectSummary = "", pendingSummary = "" } = {}) => {
+  const messages = [
+    {
+      role: "system",
+      content:
+        "You are Sphere, a concise project-aware voice assistant for freelancers. Answer in a natural spoken style with short sentences. Use the project context only. If the user asks what's pending, summarize milestones, tasks, and any risks in plain language. Avoid markdown and avoid jargon.",
+    },
+    {
+      role: "user",
+      content: `User: ${userName}\nQuestion: ${question}\n\nProject context:\n${projectSummary}\n\nPending work:\n${pendingSummary}`,
+    },
+  ];
+  return fastCompletion(messages, { maxTokens: 240, temperature: 0.5 });
+};
+
+export const generateHealthReason = async ({ stats = {}, status = "healthy" } = {}) => {
+  const messages = [
+    {
+      role: "system",
+      content:
+        'Given project health stats, write one short plain-English sentence explaining the status. No bullets. No jargon. Under 12 words.',
+    },
+    { role: "user", content: JSON.stringify({ status, stats }) },
+  ];
+  const reason = await chatCompletion(messages, { maxTokens: 60 });
+  return reason.replace(/[\n\r]+/g, " ").trim() || "Activity has slowed recently.";
+};
+
+export const vectorSimilarity = cosineSimilarity;
 
 export const computeHealthInsight = async (stats) => {
   const messages = [

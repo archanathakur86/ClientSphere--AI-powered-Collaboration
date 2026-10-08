@@ -2,6 +2,24 @@ import express from "express";
 import { protect, requireProjectRole } from "../middleware/auth.js";
 import { loadProject } from "../middleware/project.js";
 import upload from "../middleware/upload.js";
+import { validate } from "../middleware/validate.js";
+import {
+  createProjectSchema,
+  updateProjectSchema,
+  toggleProjectVisibilitySchema,
+  addMemberSchema,
+  inviteClientSchema,
+  createMilestoneSchema,
+  updateMilestoneSchema,
+  createNoteSchema,
+  noteVisibilitySchema,
+  fileVisibilitySchema,
+  commentVisibilitySchema,
+  addCommentSchema,
+  weeklyDraftSchema,
+  searchSchema,
+} from "../utils/validationSchemas.js";
+import { aiLimiter } from "../middleware/rateLimiter.js";
 import {
   createProject,
   getMyProjects,
@@ -11,38 +29,57 @@ import {
   updateProject,
   toggleVisibility,
   getAnalytics,
+  inviteClient,
+  createMilestone,
+  getMilestones,
+  updateMilestone,
+  deleteMilestone,
+  listClientInvites,
+  revokeClientInvite,
 } from "../controllers/projectController.js";
-import { createNote, getNotes } from "../controllers/noteController.js";
-import { uploadFile, getFiles } from "../controllers/fileController.js";
+import { createNote, getNotes, toggleNoteVisibility } from "../controllers/noteController.js";
+import { uploadFile, getFiles, toggleFileVisibility } from "../controllers/fileController.js";
 import {
   generateProjectReadme,
   weeklyReport,
   projectHealth,
   aiSearch,
   getTasks,
+  getWeeklyUpdateDraft,
+  saveWeeklyUpdateDraft,
+  sendWeeklyUpdateDraft,
 } from "../controllers/aiController.js";
-import { getComments, addComment } from "../controllers/commentController.js";
+import { getComments, addComment, toggleCommentVisibility } from "../controllers/commentController.js";
 
 const router = express.Router();
 
 router.use(protect);
 
-router.route("/").post(createProject).get(getMyProjects);
+router.route("/").post(validate(createProjectSchema), createProject).get(getMyProjects);
 
 router
   .route("/:projectId")
   .get(loadProject, getProject)
-  .patch(loadProject, updateProject);
+  .patch(loadProject, requireProjectRole(["owner", "editor"]), validate(updateProjectSchema), updateProject);
 
-router.patch("/:projectId/visibility", loadProject, toggleVisibility);
-router.post("/:projectId/members", loadProject, addMember);
+router.patch("/:projectId/visibility", loadProject, validate(toggleProjectVisibilitySchema), toggleVisibility);
+router.post("/:projectId/members", loadProject, validate(addMemberSchema), addMember);
 router.delete("/:projectId/members/:userId", loadProject, removeMember);
 router.get("/:projectId/analytics", loadProject, getAnalytics);
+router.post("/:projectId/client-invite", loadProject, requireProjectRole(["owner"]), validate(inviteClientSchema), inviteClient);
+router.get("/:projectId/client-invites", loadProject, requireProjectRole(["owner"]), listClientInvites);
+router.patch("/:projectId/client-invite/:inviteId/revoke", loadProject, requireProjectRole(["owner"]), revokeClientInvite);
+router
+  .route("/:projectId/milestones")
+  .get(loadProject, getMilestones)
+  .post(loadProject, requireProjectRole(["owner", "editor"]), validate(createMilestoneSchema), createMilestone);
+router.patch("/:projectId/milestones/:milestoneId", loadProject, requireProjectRole(["owner", "editor"]), validate(updateMilestoneSchema), updateMilestone);
+router.delete("/:projectId/milestones/:milestoneId", loadProject, requireProjectRole(["owner", "editor"]), deleteMilestone);
 
 // notes - only owner/editor can create; any member can view
 router
   .route("/:projectId/notes")
-  .post(loadProject, requireProjectRole(["owner", "editor"]), createNote)
+  .post(loadProject, requireProjectRole(["owner", "editor"]), validate(createNoteSchema), createNote)
   .get(loadProject, getNotes);
 
 // files - only owner/editor can upload; any member can view
@@ -52,13 +89,21 @@ router
   .get(loadProject, getFiles);
 
 // AI project-level features
-router.post("/:projectId/ai/readme", loadProject, generateProjectReadme);
-router.get("/:projectId/ai/weekly-report", loadProject, weeklyReport);
-router.get("/:projectId/ai/health", loadProject, projectHealth);
-router.get("/:projectId/ai/search", loadProject, aiSearch);
+router.post("/:projectId/ai/readme", aiLimiter, loadProject, generateProjectReadme);
+router.get("/:projectId/ai/weekly-report", aiLimiter, loadProject, weeklyReport);
+router.get("/:projectId/ai/weekly-draft", loadProject, getWeeklyUpdateDraft);
+router.patch("/:projectId/ai/weekly-draft", loadProject, requireProjectRole(["owner", "editor"]), validate(weeklyDraftSchema), saveWeeklyUpdateDraft);
+router.post("/:projectId/ai/weekly-draft/send", loadProject, requireProjectRole(["owner", "editor"]), sendWeeklyUpdateDraft);
+router.get("/:projectId/ai/health", aiLimiter, loadProject, projectHealth);
+router.get("/:projectId/ai/search", aiLimiter, loadProject, validate(searchSchema), aiSearch);
 router.get("/:projectId/tasks", loadProject, getTasks);
 
 // comments - open to any project member (owner/editor/viewer/commentor)
-router.route("/:projectId/comments").get(loadProject, getComments).post(loadProject, addComment);
+router.route("/:projectId/comments").get(loadProject, getComments).post(loadProject, validate(addCommentSchema), addComment);
+
+// Register visibility endpoints for notes, comments, and files
+router.patch("/:projectId/notes/:noteId/visibility", loadProject, requireProjectRole(["owner", "editor"]), validate(noteVisibilitySchema), toggleNoteVisibility);
+router.patch("/:projectId/comments/:commentId/visibility", loadProject, requireProjectRole(["owner", "editor"]), validate(commentVisibilitySchema), toggleCommentVisibility);
+router.patch("/:projectId/files/:fileId/visibility", loadProject, requireProjectRole(["owner", "editor"]), validate(fileVisibilitySchema), toggleFileVisibility);
 
 export default router;

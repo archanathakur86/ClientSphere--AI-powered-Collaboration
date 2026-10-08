@@ -10,3 +10,4 @@ logs/
 .DS_Store
 backend/uploads/*
 !backend/uploads/.gitkeep
+GEMINI.md

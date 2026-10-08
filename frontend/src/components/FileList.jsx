@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import api from "../api/axios.js";
 import Markdown from "./Markdown.jsx";
+import ShareToggle from "./ShareToggle.jsx";
 
 // Keep in sync with TEXT_EXTENSIONS in backend/services/uploadService.js (minus plain .txt)
 const CODE_EXTENSIONS = [
@@ -13,9 +14,9 @@ const IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "gif", "webp", "svg"];
 const VIEWABLE_EXTENSIONS = ["pdf", "png", "jpg", "jpeg", "gif", "webp", "txt", ...CODE_EXTENSIONS];
 
 const RISK_STYLES = {
-  high: "bg-red-100 text-red-700 border-red-200",
-  medium: "bg-yellow-100 text-yellow-700 border-yellow-200",
-  low: "bg-green-100 text-green-700 border-green-200",
+  high: "bg-red-500/10 text-red-300 border-red-500/30",
+  medium: "bg-yellow-500/10 text-yellow-300 border-yellow-500/30",
+  low: "bg-emerald-500/10 text-emerald-300 border-emerald-500/30",
 };
 
 // With responseType "blob", error bodies arrive as a Blob too, so unwrap the JSON message
@@ -42,7 +43,7 @@ function RiskPill({ level, children }) {
 function ReviewPanel({ file, review, reviewing, onRerun }) {
   if (!review) {
     return (
-      <div className="mt-3 bg-brand-50 border border-brand-100 rounded-lg p-3 text-sm text-slate-500">
+      <div className="mt-3 bg-indigo-500/10 border border-indigo-500/20 rounded-lg p-3 text-sm text-slate-400">
         {file.version > 1 ? `AI is comparing v${file.version} with the previous version...` : "AI is reviewing this file..."}
       </div>
     );
@@ -50,11 +51,11 @@ function ReviewPanel({ file, review, reviewing, onRerun }) {
 
   const compared = review.comparedWithVersion;
   return (
-    <div className={`mt-3 bg-brand-50 border border-brand-100 rounded-lg p-4 text-sm ${reviewing ? "opacity-60" : ""}`}>
+    <div className={`mt-3 bg-indigo-500/10 border border-indigo-500/20 rounded-lg p-4 text-sm ${reviewing ? "opacity-60" : ""}`}>
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
         <div>
-          <p className="font-semibold text-brand-700">🔍 AI Code Review</p>
-          <p className="text-xs text-slate-500">
+          <p className="font-semibold text-indigo-300">🔍 AI Code Review</p>
+          <p className="text-xs text-slate-400">
             {compared
               ? `v${file.version} compared with v${compared} · +${review.addedLines} −${review.removedLines} lines`
               : `v${file.version} · first version, so the whole file was reviewed`}
@@ -63,12 +64,12 @@ function ReviewPanel({ file, review, reviewing, onRerun }) {
         <RiskPill level={review.riskLevel}>Risk: {review.riskLevel}</RiskPill>
       </div>
 
-      <p className="font-medium text-slate-800 mb-1">Summary</p>
-      <p className="text-slate-700 mb-3 leading-relaxed">{review.summary}</p>
+      <p className="font-medium text-slate-100 mb-1">Summary</p>
+      <p className="text-slate-300 mb-3 leading-relaxed">{review.summary}</p>
 
-      <p className="font-medium text-slate-800 mb-1">Risks</p>
+      <p className="font-medium text-slate-100 mb-1">Risks</p>
       {review.risks.length === 0 ? (
-        <p className="text-slate-500 mb-3">No significant risks found ✓</p>
+        <p className="text-slate-400 mb-3">No significant risks found ✓</p>
       ) : (
         <ul className="space-y-1.5 mb-3">
           {review.risks.map((r, i) => (
@@ -76,17 +77,17 @@ function ReviewPanel({ file, review, reviewing, onRerun }) {
               <span className="mt-0.5 flex-shrink-0">
                 <RiskPill level={r.severity} />
               </span>
-              <span className="text-slate-700 leading-relaxed">{r.description}</span>
+              <span className="text-slate-300 leading-relaxed">{r.description}</span>
             </li>
           ))}
         </ul>
       )}
 
-      <p className="font-medium text-slate-800 mb-1">Suggestions</p>
+      <p className="font-medium text-slate-100 mb-1">Suggestions</p>
       {review.suggestions.length === 0 ? (
-        <p className="text-slate-500 mb-3">Nothing to add.</p>
+        <p className="text-slate-400 mb-3">Nothing to add.</p>
       ) : (
-        <ul className="list-disc pl-5 space-y-1 text-slate-700 mb-3">
+        <ul className="list-disc pl-5 space-y-1 text-slate-300 mb-3">
           {review.suggestions.map((s, i) => (
             <li key={i} className="leading-relaxed">
               {s}
@@ -102,7 +103,7 @@ function ReviewPanel({ file, review, reviewing, onRerun }) {
       )}
       <div className="flex items-center justify-between text-xs text-slate-400">
         <span>{review.generatedAt ? `Reviewed ${new Date(review.generatedAt).toLocaleString()}` : ""}</span>
-        <button className="text-brand-600 hover:underline disabled:opacity-50" onClick={onRerun} disabled={reviewing}>
+        <button className="text-indigo-400 hover:underline disabled:opacity-50" onClick={onRerun} disabled={reviewing}>
           {reviewing ? "Re-running..." : "↻ Re-run review"}
         </button>
       </div>
@@ -110,7 +111,7 @@ function ReviewPanel({ file, review, reviewing, onRerun }) {
   );
 }
 
-function FileCard({ file, onDeleted }) {
+function FileCard({ file, projectId, canEdit, onDeleted, onUpdated }) {
   const [explanation, setExplanation] = useState(null);
   const [explaining, setExplaining] = useState(false);
   const [review, setReview] = useState(file.review || null);
@@ -193,6 +194,16 @@ function FileCard({ file, onDeleted }) {
     }
   };
 
+  const handleShare = async (next) => {
+    try {
+      await api.patch(`/projects/${projectId}/files/${file._id}/visibility`, { isShared: next });
+      onUpdated?.({ ...file, isShared: next });
+      toast.success(next ? "Shared with the client" : "Now internal only");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Couldn't change visibility");
+    }
+  };
+
   const handleDelete = async () => {
     if (!confirm(`Delete ${file.originalName}?`)) return;
     try {
@@ -212,7 +223,7 @@ function FileCard({ file, onDeleted }) {
             type="button"
             onClick={openFile}
             disabled={opening}
-            className="font-medium text-brand-700 hover:underline text-left disabled:opacity-60"
+            className="font-medium text-indigo-300 hover:underline text-left disabled:opacity-60"
             title={VIEWABLE_EXTENSIONS.includes(file.fileType) ? "Open in a new tab" : "Download"}
           >
             {opening ? "Opening..." : file.originalName}
@@ -221,9 +232,14 @@ function FileCard({ file, onDeleted }) {
             v{file.version} · {file.uploader?.name} · {new Date(file.createdAt).toLocaleDateString()}
           </p>
         </div>
-        <button onClick={handleDelete} className="text-xs text-red-500 hover:underline">
-          Delete
-        </button>
+        <div className="flex items-center gap-3 flex-shrink-0">
+          <ShareToggle shared={Boolean(file.isShared)} onChange={canEdit && onUpdated ? handleShare : undefined} />
+          {canEdit && (
+            <button onClick={handleDelete} className="text-xs text-red-400 hover:underline">
+              Delete
+            </button>
+          )}
+        </div>
       </div>
 
       {isImage && <img src={file.url} alt={file.originalName} className="mt-2 max-h-40 rounded-lg border" />}
@@ -248,8 +264,8 @@ function FileCard({ file, onDeleted }) {
       {showReview && <ReviewPanel file={file} review={review} reviewing={reviewing} onRerun={() => runReview({ regenerate: true })} />}
 
       {explanation && (
-        <div className="mt-3 bg-brand-50 border border-brand-100 rounded-lg p-3">
-          <p className="font-medium text-brand-700 mb-1 text-sm">Code Explanation</p>
+        <div className="mt-3 bg-indigo-500/10 border border-indigo-500/20 rounded-lg p-3">
+          <p className="font-medium text-indigo-300 mb-1 text-sm">Code Explanation</p>
           <Markdown>{explanation}</Markdown>
         </div>
       )}
@@ -257,14 +273,14 @@ function FileCard({ file, onDeleted }) {
   );
 }
 
-export default function FileList({ files, onDeleted }) {
+export default function FileList({ files, projectId, canEdit = true, onUpdated, onDeleted }) {
   if (files.length === 0) {
-    return <div className="card text-center py-8 text-slate-500">No files uploaded yet.</div>;
+    return <div className="card text-center py-8 text-slate-400">No files yet. Files are internal until you share them with the client.</div>;
   }
   return (
     <div className="space-y-3">
       {files.map((f) => (
-        <FileCard key={f._id} file={f} onDeleted={onDeleted} />
+        <FileCard key={f._id} file={f} projectId={projectId} canEdit={canEdit} onUpdated={onUpdated} onDeleted={onDeleted} />
       ))}
     </div>
   );

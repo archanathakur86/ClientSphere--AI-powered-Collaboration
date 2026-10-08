@@ -2,30 +2,14 @@ import React, { useState } from "react";
 import toast from "react-hot-toast";
 import api from "../api/axios.js";
 import Markdown from "./Markdown.jsx";
+import WeeklyUpdateCard from "./WeeklyUpdateCard.jsx";
 
-export default function ReportGenerator({ projectId, initialReadme, onReadmeGenerated }) {
-  const [report, setReport] = useState(null);
-  const [reportGenerated, setReportGenerated] = useState(false);
-  const [loadingReport, setLoadingReport] = useState(false);
-
+export default function ReportGenerator({ projectId, project, initialReadme, onReadmeGenerated }) {
   const [readme, setReadme] = useState(initialReadme || "");
   const [readmeGeneratedOnce, setReadmeGeneratedOnce] = useState(!!initialReadme);
   const [loadingReadme, setLoadingReadme] = useState(false);
   const [editingReadme, setEditingReadme] = useState(false);
   const [savingReadme, setSavingReadme] = useState(false);
-
-  const generateReport = async () => {
-    setLoadingReport(true);
-    try {
-      const res = await api.get(`/projects/${projectId}/ai/weekly-report`);
-      setReport(res.data.report);
-      setReportGenerated(true);
-    } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to generate report");
-    } finally {
-      setLoadingReport(false);
-    }
-  };
 
   const generateReadme = async () => {
     setLoadingReadme(true);
@@ -58,37 +42,13 @@ export default function ReportGenerator({ projectId, initialReadme, onReadmeGene
 
   return (
     <div className="space-y-4">
-      <div className="card">
-        <div className="flex items-center justify-between">
-          <div>
-            <h4 className="font-semibold">Weekly Progress Report</h4>
-            <p className="text-sm text-slate-500">AI summarizes this week's activity into a stakeholder-ready update.</p>
-          </div>
-          <button
-            className="btn btn-primary text-sm whitespace-nowrap"
-            onClick={generateReport}
-            disabled={loadingReport || reportGenerated}
-          >
-            {loadingReport ? "Generating..." : reportGenerated ? "Generated ✓" : "Generate"}
-          </button>
-        </div>
-        {reportGenerated && (
-          <button className="text-xs text-brand-600 hover:underline mt-2" onClick={() => setReportGenerated(false)}>
-            Generate again
-          </button>
-        )}
-        {report && (
-          <div className="mt-4 bg-brand-50 border border-brand-100 rounded-lg p-4">
-            <Markdown>{report}</Markdown>
-          </div>
-        )}
-      </div>
+      <WeeklyUpdateCard projectId={projectId} project={project} />
 
       <div className="card">
         <div className="flex items-center justify-between">
           <div>
             <h4 className="font-semibold">AI README Generator</h4>
-            <p className="text-sm text-slate-500">Scans your project's files and notes to draft a professional README.</p>
+            <p className="text-sm text-slate-400">Scans your project's files and notes to draft a professional README.</p>
           </div>
           <button
             className="btn btn-primary text-sm whitespace-nowrap"
@@ -99,14 +59,14 @@ export default function ReportGenerator({ projectId, initialReadme, onReadmeGene
           </button>
         </div>
         {readmeGeneratedOnce && (
-          <button className="text-xs text-brand-600 hover:underline mt-2" onClick={() => setReadmeGeneratedOnce(false)}>
+          <button className="text-xs text-indigo-400 hover:underline mt-2" onClick={() => setReadmeGeneratedOnce(false)}>
             Regenerate from scratch
           </button>
         )}
 
         {readme && !editingReadme && (
           <>
-            <div className="mt-4 bg-brand-50 border border-brand-100 rounded-lg p-4 max-h-96 overflow-y-auto">
+            <div className="mt-4 bg-indigo-500/10 border border-indigo-500/20 rounded-lg p-4 max-h-96 overflow-y-auto">
               <Markdown>{readme}</Markdown>
             </div>
             <button className="btn btn-secondary text-sm mt-3" onClick={() => setEditingReadme(true)}>

@@ -13,9 +13,9 @@ export const registerUser = asyncHandler(async (req, res) => {
     res.status(400);
     throw new Error("Please provide name, email and password");
   }
-  if (password.length < 6) {
+  if (password.length < 8) {
     res.status(400);
-    throw new Error("Password must be at least 6 characters");
+    throw new Error("Password must be at least 8 characters");
   }
 
   const existing = await User.findOne({ email: email.toLowerCase() });

@@ -43,7 +43,7 @@ export default function FileUpload({ projectId, onUploaded }) {
         Tip: upload a file with the same name again to save it as a new version — AI will compare it with the previous
         one and review the changes.
       </p>
-      {uploading && <p className="text-xs text-brand-600 mt-2">Uploading to cloud storage...</p>}
+      {uploading && <p className="text-xs text-indigo-400 mt-2">Uploading to cloud storage...</p>}
     </div>
   );
 }

@@ -3,8 +3,15 @@ import mongoose from "mongoose";
 const commentSchema = new mongoose.Schema(
   {
     project: { type: mongoose.Schema.Types.ObjectId, ref: "Project", required: true },
-    author: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    author: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    authorName: { type: String, default: "" },
+    authorEmail: { type: String, default: "" },
     content: { type: String, required: true, trim: true, maxlength: 2000 },
+    isShared: { type: Boolean, default: false },
+    embedding: [{ type: Number }],
+    scopeVerdict: { type: String, default: "" },
+    scopeReason: { type: String, default: "" },
+    scopeSuggestedReply: { type: String, default: "" },
   },
   { timestamps: true }
 );

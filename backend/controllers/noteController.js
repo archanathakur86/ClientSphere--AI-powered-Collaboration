@@ -1,6 +1,6 @@
 import asyncHandler from "express-async-handler";
 import Note from "../models/Note.js";
-import { generateTags, checkDuplicateNote, explainText, suggestImprovements } from "../services/groqService.js";
+import { generateTags, checkDuplicateNote, explainText, suggestImprovements, generateEmbedding } from "../services/groqService.js";
 import { logActivity } from "./projectController.js";
 import { loadProjectForUser } from "../middleware/projectAccess.js";
 
@@ -23,13 +23,16 @@ export const createNote = asyncHandler(async (req, res) => {
     console.error("Duplicate check skipped:", err.message);
   }
 
-  // AI auto-tagging (best-effort, non-blocking failure)
-  let tags = [];
-  try {
-    tags = await generateTags(`${title}\n${content}`);
-  } catch (err) {
-    console.error("Tag generation skipped:", err.message);
-  }
+  const [tags, embedding] = await Promise.all([
+    generateTags(`${title}\n${content}`).catch((err) => {
+      console.error("Tag generation skipped:", err.message);
+      return [];
+    }),
+    generateEmbedding(`${title}\n${content}`).catch((err) => {
+      console.error("Embedding generation skipped:", err.message);
+      return [];
+    }),
+  ]);
 
   const note = await Note.create({
     project: req.project._id,
@@ -37,6 +40,7 @@ export const createNote = asyncHandler(async (req, res) => {
     title,
     content,
     tags,
+    embedding,
   });
 
   logActivity(req.project, req.user._id, "note_created", title);
@@ -64,12 +68,19 @@ export const updateNote = asyncHandler(async (req, res) => {
   if (title) note.title = title;
   if (content !== undefined) note.content = content;
 
-  if (content !== undefined) {
-    try {
-      note.tags = await generateTags(`${note.title}\n${content}`);
-    } catch (err) {
-      console.error("Tag regeneration skipped:", err.message);
-    }
+  if (content !== undefined || title !== undefined) {
+    const [tags, embedding] = await Promise.all([
+      generateTags(`${note.title}\n${note.content}`).catch((err) => {
+        console.error("Tag regeneration skipped:", err.message);
+        return note.tags;
+      }),
+      generateEmbedding(`${note.title}\n${note.content}`).catch((err) => {
+        console.error("Embedding regeneration skipped:", err.message);
+        return note.embedding || [];
+      }),
+    ]);
+    note.tags = tags;
+    note.embedding = embedding;
   }
 
   await note.save();
@@ -113,4 +124,19 @@ export const improveNote = asyncHandler(async (req, res) => {
 
   const suggestions = await suggestImprovements(note.content);
   res.json({ success: true, suggestions });
+});
+
+// @route PATCH /api/notes/:noteId/visibility
+export const toggleNoteVisibility = asyncHandler(async (req, res) => {
+  const note = await Note.findById(req.params.noteId);
+  if (!note) {
+    res.status(404);
+    throw new Error("Note not found");
+  }
+  await loadProjectForUser(res, note.project, req.user, ["owner", "editor"]);
+
+  const { isShared } = req.body;
+  note.isShared = Boolean(isShared);
+  await note.save();
+  res.json({ success: true, note });
 });

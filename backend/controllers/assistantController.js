@@ -2,6 +2,10 @@ import mongoose from "mongoose";
 import asyncHandler from "express-async-handler";
 import Conversation from "../models/Conversation.js";
 import User from "../models/User.js";
+import Project from "../models/Project.js";
+import Task from "../models/Task.js";
+import Milestone from "../models/Milestone.js";
+import { loadProjectForUser } from "../middleware/projectAccess.js";
 import { fastCompletion } from "../services/groqService.js";
 
 const MAX_HISTORY = 20; // messages sent to the model as context
@@ -13,12 +17,43 @@ const makeTitle = (text = "") => {
   return clean.length > 40 ? `${clean.slice(0, 40).trimEnd()}…` : clean || "New chat";
 };
 
-const buildSystemPrompt = (user) => {
+const buildProjectContext = async (project) => {
+  const [tasks, milestones] = await Promise.all([
+    Task.find({ project: project._id }).sort({ updatedAt: -1 }).limit(12).select("title status priority"),
+    Milestone.find({ project: project._id }).sort({ dueDate: 1, createdAt: -1 }).limit(12).select("title status dueDate"),
+  ]);
+
+  const taskSummary = tasks.length
+    ? tasks.map((task) => `${task.title} — ${task.status}${task.priority ? ` — priority ${task.priority}` : ""}`).join("; ")
+    : "No tasks yet.";
+  const milestoneSummary = milestones.length
+    ? milestones
+        .map((milestone) => `${milestone.title} — ${milestone.status}${milestone.dueDate ? ` — due ${new Date(milestone.dueDate).toISOString().slice(0, 10)}` : ""}`)
+        .join("; ")
+    : "No milestones yet.";
+
+  return [
+    `Project: ${project.name}`,
+    project.description ? `Description: ${project.description}` : null,
+    project.clientName ? `Client: ${project.clientName}` : null,
+    project.clientEmail ? `Client email on file: ${project.clientEmail}` : null,
+    `Weekly update draft: ${project.weeklyUpdateDraft?.content?.trim() || "No draft yet."}`,
+    `Tasks: ${taskSummary}`,
+    `Milestones: ${milestoneSummary}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+};
+
+const buildSystemPrompt = (user, projectContext = "") => {
   const memoryLine =
     user.memoryFacts && user.memoryFacts.length
       ? `Known facts about the user: ${user.memoryFacts.join("; ")}.`
       : "";
-  return `You are Sphere, the built-in AI assistant for ClientSphere, an AI-powered workspace for freelancers and their clients. The user's name is ${user.name}. Greet or address them by name naturally sometimes, but don't overdo it every message. The user can have many separate chats with you, so focus on the current conversation. Keep answers concise and conversational since responses may be read aloud via text-to-speech - avoid long lists, avoid markdown symbols like asterisks or hashes, prefer short plain sentences. ${memoryLine} If the user shares a new fact about themselves worth remembering (preferences, their role, ongoing project), note it naturally in your reply but keep it brief.`;
+  const projectLine = projectContext
+    ? `Current project context:\n${projectContext}\nWhen the user asks about this project, answer from this context first and call out anything pending this week.`
+    : "";
+  return `You are Sphere, the built-in AI assistant for ClientSphere, an AI-powered workspace for freelancers and their clients. The user's name is ${user.name}. Greet or address them by name naturally sometimes, but don't overdo it every message. The user can have many separate chats with you, so focus on the current conversation. Keep answers concise and conversational since responses may be read aloud via text-to-speech - avoid long lists, avoid markdown symbols like asterisks or hashes, prefer short plain sentences. ${memoryLine} ${projectLine} If the user shares a new fact about themselves worth remembering (preferences, their role, ongoing project), note it naturally in your reply but keep it brief.`;
 };
 
 // Loads a conversation that belongs to the logged-in user, or throws 404.
@@ -40,7 +75,7 @@ const findOwnedConversation = async (id, userId, res) => {
 // - no conversationId  -> starts a NEW chat
 // - with conversationId -> continues that chat
 export const chatWithAssistant = asyncHandler(async (req, res) => {
-  const { message, conversationId } = req.body;
+  const { message, conversationId, projectId } = req.body;
   if (!message || !message.trim()) {
     res.status(400);
     throw new Error("Message cannot be empty");
@@ -51,7 +86,13 @@ export const chatWithAssistant = asyncHandler(async (req, res) => {
     conversation = await findOwnedConversation(conversationId, req.user._id, res);
   }
 
-  const systemPrompt = buildSystemPrompt(req.user);
+  let projectContext = "";
+  if (projectId) {
+    const { project } = await loadProjectForUser(res, projectId, req.user);
+    projectContext = await buildProjectContext(project);
+  }
+
+  const systemPrompt = buildSystemPrompt(req.user, projectContext);
 
   const recentHistory = (conversation ? conversation.messages.slice(-MAX_HISTORY) : []).map((m) => ({
     role: m.role === "assistant" ? "assistant" : "user",

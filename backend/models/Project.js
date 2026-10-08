@@ -27,9 +27,30 @@ const projectSchema = new mongoose.Schema(
     description: { type: String, default: "" },
     owner: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     members: [memberSchema],
+    clientEmail: { type: String, default: "", lowercase: true, trim: true },
+    clientName: { type: String, default: "" },
     isPublic: { type: Boolean, default: false },
     publicSlug: { type: String, unique: true, sparse: true, default: () => nanoid() },
     readme: { type: String, default: "" },
+    weeklyUpdateDraft: {
+      content: { type: String, default: "" },
+      generatedAt: { type: Date, default: null },
+      sentAt: { type: Date, default: null },
+      sentBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    },
+    // What the client actually sees in the portal. Only written when the freelancer
+    // presses "Send" - drafts (weeklyUpdateDraft) are never shown to the client.
+    publishedUpdate: {
+      content: { type: String, default: "" },
+      sentAt: { type: Date, default: null },
+    },
+    healthCache: {
+      status: { type: String, enum: ["healthy", "slowing", "inactive"], default: "healthy" },
+      score: { type: Number, default: 100 },
+      reason: { type: String, default: "" },
+      stats: { type: Object, default: {} },
+      updatedAt: { type: Date, default: null },
+    },
     activityLog: [activityLogSchema],
   },
   { timestamps: true }

@@ -29,3 +29,35 @@ export const loadProjectForUser = async (res, projectId, user, allowedRoles = nu
   }
   return { project, role };
 };
+
+export const MILESTONE_STATUSES = ["pending", "in review", "changes requested", "approved"];
+
+// Who may move a milestone where:
+//  - staff (owner/editor) submit work for review, or pull it back;
+//  - only the client can approve or request changes, and only while it is "in review".
+// "approved" is final, so an approved milestone can't be re-opened and re-invoiced.
+const MILESTONE_TRANSITIONS = {
+  staff: {
+    pending: ["in review"],
+    "in review": ["pending"],
+    "changes requested": ["in review", "pending"],
+    approved: [],
+  },
+  client: {
+    "in review": ["approved", "changes requested"],
+  },
+};
+
+export const isValidMilestoneTransition = (from, to, actor = "staff") =>
+  Boolean(MILESTONE_TRANSITIONS[actor]?.[from]?.includes(to));
+
+export const filterVisibleProjectContent = (req, { notes = [], comments = [], files = [] } = {}) => {
+  const isClient = req.user && req.user.role === "client";
+  if (!isClient) return { notes, comments, files };
+
+  return {
+    notes: notes.filter((note) => note.isShared),
+    comments: comments.filter((comment) => comment.isShared),
+    files: files.filter((file) => file.isShared),
+  };
+};

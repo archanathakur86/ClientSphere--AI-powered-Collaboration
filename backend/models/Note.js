@@ -8,6 +8,7 @@ const noteSchema = new mongoose.Schema(
     content: { type: String, default: "" }, // markdown
     tags: [{ type: String }], // AI-generated tags
     embedding: [{ type: Number }], // for semantic search
+    isShared: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
