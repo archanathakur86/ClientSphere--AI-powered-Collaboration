@@ -9,11 +9,11 @@ export default function ShareToggle({ shared, onChange, disabled = false }) {
   const interactive = Boolean(onChange) && !disabled;
 
   const tone = shared
-    ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/30"
-    : "bg-slate-800 text-slate-400 border-slate-700";
-  const base = `inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full border ${tone}`;
+    ? "bg-emerald-500/10 text-emerald-400 dark:text-emerald-300 light:text-emerald-700 border-emerald-500/30"
+    : "bg-slate-800/80 dark:bg-slate-800/80 light:bg-slate-200 text-slate-400 dark:text-slate-400 light:text-slate-600 border-slate-700/80 dark:border-slate-700/80 light:border-slate-300";
+  const base = `inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full border transition-all ${tone}`;
   const Icon = shared ? Eye : Lock;
-  const label = busy ? "Saving…" : shared ? "Shared with client" : "Internal";
+  const label = busy ? "Saving…" : shared ? "Shared with client" : "Internal only";
 
   if (!interactive) {
     return (
@@ -41,7 +41,7 @@ export default function ShareToggle({ shared, onChange, disabled = false }) {
       disabled={busy}
       aria-pressed={shared}
       title={shared ? "The client can see this. Click to make it internal." : "Only your team can see this. Click to share it with the client."}
-      className={`${base} hover:brightness-125 transition disabled:opacity-60`}
+      className={`${base} hover:scale-105 active:scale-95 disabled:opacity-60 cursor-pointer`}
     >
       <Icon className="w-3 h-3" />
       {label}

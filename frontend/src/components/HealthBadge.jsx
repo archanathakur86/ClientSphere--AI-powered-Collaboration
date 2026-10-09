@@ -1,13 +1,18 @@
 import React, { useEffect, useState, useCallback } from "react";
 import api from "../api/axios.js";
+import { Activity, RefreshCw } from "lucide-react";
 
 const STATUS_STYLES = {
-  healthy: "bg-emerald-500/10 text-emerald-300 border-emerald-500/30",
-  slowing: "bg-yellow-500/10 text-yellow-300 border-yellow-500/30",
-  inactive: "bg-red-500/10 text-red-300 border-red-500/30",
+  healthy: "bg-emerald-500/10 text-emerald-400 dark:text-emerald-300 light:text-emerald-700 border-emerald-500/30 shadow-sm shadow-emerald-500/10",
+  slowing: "bg-amber-500/10 text-amber-400 dark:text-amber-300 light:text-amber-700 border-amber-500/30 shadow-sm shadow-amber-500/10",
+  inactive: "bg-rose-500/10 text-rose-400 dark:text-rose-300 light:text-rose-700 border-rose-500/30 shadow-sm shadow-rose-500/10",
 };
 
-const STATUS_EMOJI = { healthy: "🟢", slowing: "🟡", inactive: "🔴" };
+const STATUS_DOT = {
+  healthy: "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]",
+  slowing: "bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]",
+  inactive: "bg-rose-400 shadow-[0_0_8px_rgba(248,113,113,0.8)]",
+};
 
 // refreshKey: bump this number from the parent whenever a note/file/task is
 // created or deleted so the badge updates immediately, without needing a
@@ -36,8 +41,9 @@ export default function HealthBadge({ projectId, refreshKey }) {
 
   if (loading && !health) {
     return (
-      <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm bg-slate-950 text-slate-400 border-slate-800">
-        <span className="w-2 h-2 rounded-full bg-slate-300 animate-pulse" /> Checking health...
+      <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs bg-slate-900/80 text-slate-400 border-slate-800 animate-pulse">
+        <span className="w-2 h-2 rounded-full bg-indigo-400" />
+        <span>Analyzing project health...</span>
       </span>
     );
   }
@@ -46,9 +52,10 @@ export default function HealthBadge({ projectId, refreshKey }) {
     return (
       <button
         onClick={fetchHealth}
-        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm bg-slate-950 text-slate-400 border-slate-800 hover:text-slate-200"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs bg-slate-900/80 text-slate-400 border-slate-800 hover:text-white transition-colors"
       >
-        ⚠️ Health unavailable — retry
+        <Activity className="w-3.5 h-3.5 text-amber-400" />
+        <span>Health check offline</span>
       </button>
     );
   }
@@ -58,13 +65,13 @@ export default function HealthBadge({ projectId, refreshKey }) {
   return (
     <button
       onClick={fetchHealth}
-      title="Click to refresh"
-      className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm transition-opacity hover:opacity-80 ${STATUS_STYLES[status]}`}
+      title="Click to refresh AI health diagnostic"
+      className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border text-xs font-semibold tracking-wide transition-all hover:scale-105 ${STATUS_STYLES[status]}`}
     >
-      <span>{STATUS_EMOJI[status]}</span>
-      <span className="font-medium capitalize">{status}</span>
-      <span className="text-xs opacity-80 hidden sm:inline">— {health.insight?.reason}</span>
-      {loading && <span className="text-xs opacity-60">↻</span>}
+      <span className={`w-2 h-2 rounded-full ${STATUS_DOT[status]}`} />
+      <span className="capitalize">{status}</span>
+      <span className="text-[11px] opacity-80 hidden md:inline truncate max-w-xs">— {health.insight?.reason}</span>
+      {loading && <RefreshCw className="w-3 h-3 animate-spin opacity-70" />}
     </button>
   );
 }

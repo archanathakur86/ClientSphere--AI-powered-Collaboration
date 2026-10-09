@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import api from "../api/axios.js";
+import { Sparkles, Send, Save, CheckCircle2, Clock, AlertCircle } from "lucide-react";
 
 const fmtDateTime = (d) => (d ? new Date(d).toLocaleString(undefined, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) : "");
 
@@ -93,51 +94,59 @@ export default function WeeklyUpdateCard({ projectId, project }) {
   };
 
   return (
-    <div className="card space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h4 className="font-semibold">Client progress update</h4>
-          <p className="text-sm text-slate-400 mt-1">
-            AI drafts a plain-language update from real milestones, tasks and activity. You edit it, then send. Your client never sees a draft.
+    <div className="card p-6 space-y-5 border-indigo-500/20 shadow-md">
+      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-800 dark:border-slate-800 light:border-slate-200 pb-4">
+        <div className="space-y-1">
+          <h4 className="font-bold text-base text-white dark:text-white light:text-slate-900 flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-indigo-400" />
+            <span>Executive Progress Report</span>
+          </h4>
+          <p className="text-xs text-slate-400 dark:text-slate-400 light:text-slate-500">
+            AI generates plain-language progress updates from project milestones and activity. Edit before sending to the client portal.
           </p>
         </div>
-        <button className="btn btn-primary text-sm whitespace-nowrap" onClick={generate} disabled={generating || loading}>
-          {generating ? "Writing…" : draft.trim() ? "Rewrite with AI" : "Write with AI"}
+        <button className="btn btn-primary text-xs px-4 py-2" onClick={generate} disabled={generating || loading}>
+          <Sparkles className="w-3.5 h-3.5" />
+          <span>{generating ? "Writing…" : draft.trim() ? "Rewrite with AI" : "Draft with AI"}</span>
         </button>
       </div>
 
       {loading ? (
-        <p className="text-sm text-slate-400">Loading…</p>
+        <div className="p-8 text-center text-slate-400 text-xs">Loading report draft...</div>
       ) : (
-        <>
+        <div className="space-y-4">
           <textarea
-            className="input min-h-48 text-sm leading-relaxed"
+            className="input min-h-52 font-sans text-xs leading-relaxed"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            placeholder="Write an update yourself, or let AI draft one from this week's activity."
+            placeholder="Write an update yourself, or let AI draft one from this week's milestones & activity."
           />
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="text-xs text-slate-500 space-y-0.5">
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+            <div className="text-xs text-slate-400 dark:text-slate-400 light:text-slate-500 space-y-1">
               <div>
                 {meta.sentAt ? (
-                  <span className="text-emerald-300">Last sent {fmtDateTime(meta.sentAt)}. This is what your client sees until you send a new one.</span>
+                  <span className="text-emerald-400 font-medium flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Last sent {fmtDateTime(meta.sentAt)}. Shown in client portal.
+                  </span>
                 ) : (
-                  <span>Not sent yet. Your client sees nothing until you press send.</span>
+                  <span>Draft unreleased. Your client sees nothing until you publish.</span>
                 )}
               </div>
-              {dirty && <div className="text-amber-300">You have unsaved changes.</div>}
-              {!hasClient && <div className="text-indigo-300">Invite your client first (Client tab) so there is someone to send this to.</div>}
+              {dirty && <div className="text-amber-400 font-medium">⚠️ Unsaved changes in text box.</div>}
+              {!hasClient && <div className="text-indigo-400 font-medium">Connect a client email first in the Client tab to send.</div>}
             </div>
             <div className="flex gap-2">
-              <button className="btn btn-secondary text-sm" onClick={save} disabled={saving || !dirty}>
-                {saving ? "Saving…" : "Save draft"}
+              <button className="btn btn-secondary text-xs px-4 py-2" onClick={save} disabled={saving || !dirty}>
+                <Save className="w-3.5 h-3.5" />
+                <span>{saving ? "Saving…" : "Save Draft"}</span>
               </button>
-              <button className="btn btn-primary text-sm" onClick={send} disabled={sending || !draft.trim() || !hasClient}>
-                {sending ? "Sending…" : "Send to client"}
+              <button className="btn btn-primary text-xs px-5 py-2" onClick={send} disabled={sending || !draft.trim() || !hasClient}>
+                <Send className="w-3.5 h-3.5" />
+                <span>{sending ? "Sending…" : "Send to Client"}</span>
               </button>
             </div>
           </div>
-        </>
+        </div>
       )}
     </div>
   );

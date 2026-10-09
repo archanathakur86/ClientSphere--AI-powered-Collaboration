@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import toast from "react-hot-toast";
 import api from "../api/axios.js";
+import { Search, Sparkles, FileText, Folder } from "lucide-react";
 
 export default function SearchBar({ projectId }) {
   const [query, setQuery] = useState("");
@@ -31,42 +32,52 @@ export default function SearchBar({ projectId }) {
   };
 
   return (
-    <div className="space-y-4">
-      <form onSubmit={handleSearch} className="flex gap-2">
-        <input
-          className="input"
-          placeholder="Ask in plain English e.g. 'where did we discuss auth retry logic'"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-        <button className="btn btn-primary whitespace-nowrap" disabled={loading}>
-          {loading ? "Searching..." : "🔎 AI Search"}
+    <div className="space-y-6">
+      <form onSubmit={handleSearch} className="flex gap-3">
+        <div className="relative flex-1">
+          <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <input
+            className="input pl-10 text-xs"
+            placeholder="Ask in plain English e.g. 'where did we discuss auth retry logic'"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
+        <button className="btn btn-primary text-xs px-5 py-2.5 whitespace-nowrap" disabled={loading}>
+          <Sparkles className="w-3.5 h-3.5" />
+          <span>{loading ? "Searching..." : "AI Search"}</span>
         </button>
       </form>
 
       {searched && !loading && (
-        <div className="space-y-2">
+        <div className="space-y-4 animate-fadeIn">
           {answer && (
-            <div className="card bg-indigo-500/10 border-indigo-500/20">
-              <p className="text-xs uppercase tracking-wide text-indigo-400 font-semibold mb-2">AI Answer</p>
-              <p className="text-sm text-slate-300 whitespace-pre-wrap">{answer}</p>
+            <div className="card p-5 bg-indigo-500/10 border-indigo-500/30 space-y-2">
+              <p className="text-[11px] uppercase font-bold tracking-wider text-indigo-400 flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-indigo-400" /> AI Synthesized Answer
+              </p>
+              <p className="text-xs text-slate-200 dark:text-slate-200 light:text-slate-800 leading-relaxed whitespace-pre-wrap font-sans">
+                {answer}
+              </p>
             </div>
           )}
 
           {!answer && sources?.length === 0 ? (
-            <p className="text-slate-400 text-sm">No relevant results found.</p>
+            <div className="card p-8 text-center text-slate-400 text-xs">
+              No matching knowledge base documents found for "{query}".
+            </div>
           ) : (
             sources?.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-xs uppercase tracking-wide text-slate-400 font-semibold">Sources</p>
+              <div className="space-y-3">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Referenced Project Sources</p>
                 {sources.map((source) => (
-                  <div key={source.id} className="card">
+                  <div key={source.id} className="card p-4 space-y-2 hover:border-slate-700/80 transition-all">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs bg-slate-800 px-2 py-0.5 rounded-full uppercase text-slate-400">{source.type}</span>
-                      <h4 className="font-medium">{source.title}</h4>
+                      <span className="badge bg-slate-800 text-slate-300 border-slate-700 uppercase">{source.type}</span>
+                      <h4 className="font-bold text-xs text-white dark:text-white light:text-slate-900">{source.title}</h4>
                     </div>
-                    <p className="text-sm text-slate-400 mt-1">{source.snippet}...</p>
-                    {source.sourceRef && <p className="text-xs text-indigo-400 mt-2 italic">{source.sourceRef}</p>}
+                    <p className="text-xs text-slate-400 dark:text-slate-400 light:text-slate-600 leading-relaxed">{source.snippet}...</p>
+                    {source.sourceRef && <p className="text-[11px] text-indigo-400 italic">{source.sourceRef}</p>}
                   </div>
                 ))}
               </div>

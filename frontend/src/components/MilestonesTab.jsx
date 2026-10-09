@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import api from "../api/axios.js";
+import { CheckCircle2, Clock, AlertTriangle, Plus, Calendar, DollarSign, Send, Edit, Trash2, UserPlus, Undo2 } from "lucide-react";
 
 const STATUS = {
-  pending: { label: "Not submitted", dot: "bg-slate-500", chip: "bg-slate-500/10 text-slate-300 border-slate-500/30" },
-  "in review": { label: "Waiting for client", dot: "bg-amber-400", chip: "bg-amber-500/10 text-amber-300 border-amber-500/30" },
-  "changes requested": { label: "Changes requested", dot: "bg-orange-400", chip: "bg-orange-500/10 text-orange-300 border-orange-500/30" },
-  approved: { label: "Approved", dot: "bg-emerald-400", chip: "bg-emerald-500/10 text-emerald-300 border-emerald-500/30" },
+  pending: { label: "Not submitted", dot: "bg-slate-500", chip: "bg-slate-500/10 text-slate-400 dark:text-slate-300 light:text-slate-700 border-slate-500/30" },
+  "in review": { label: "Waiting for client", dot: "bg-amber-400", chip: "bg-amber-500/10 text-amber-400 dark:text-amber-300 light:text-amber-700 border-amber-500/30" },
+  "changes requested": { label: "Changes requested", dot: "bg-orange-400", chip: "bg-orange-500/10 text-orange-400 dark:text-orange-300 light:text-orange-700 border-orange-500/30" },
+  approved: { label: "Approved", dot: "bg-emerald-400", chip: "bg-emerald-500/10 text-emerald-400 dark:text-emerald-300 light:text-emerald-700 border-emerald-500/30" },
 };
 
 const money = (n) => {
@@ -22,7 +23,7 @@ const emptyForm = { title: "", description: "", dueDate: "", amount: "" };
 
 const Chip = ({ status }) => {
   const meta = STATUS[status] || STATUS.pending;
-  return <span className={`text-[11px] font-semibold uppercase tracking-wide px-2.5 py-1 rounded-full border whitespace-nowrap ${meta.chip}`}>{meta.label}</span>;
+  return <span className={`text-[11px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full border whitespace-nowrap ${meta.chip}`}>{meta.label}</span>;
 };
 
 function MilestoneForm({ initial, submitLabel, saving, onSubmit, onCancel }) {
@@ -37,22 +38,22 @@ function MilestoneForm({ initial, submitLabel, saving, onSubmit, onCancel }) {
   };
 
   return (
-    <form onSubmit={submit} className="card space-y-3 border-indigo-500/30">
+    <form onSubmit={submit} className="card p-6 space-y-4 border-indigo-500/30 shadow-lg">
       <input className="input" placeholder="Milestone title, e.g. Homepage design" value={form.title} onChange={set("title")} autoFocus />
-      <textarea className="input" rows={2} placeholder="What will the client receive? (this is what scope-creep checks compare against)" value={form.description} onChange={set("description")} />
-      <div className="grid grid-cols-2 gap-3">
-        <label className="text-xs text-slate-400 space-y-1">
+      <textarea className="input resize-none" rows={3} placeholder="What will the client receive? (this is what scope-creep checks compare against)" value={form.description} onChange={set("description")} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <label className="text-xs font-semibold text-slate-400 dark:text-slate-400 light:text-slate-600 space-y-1">
           <span>Due date</span>
           <input type="date" className="input" value={form.dueDate} onChange={set("dueDate")} />
         </label>
-        <label className="text-xs text-slate-400 space-y-1">
+        <label className="text-xs font-semibold text-slate-400 dark:text-slate-400 light:text-slate-600 space-y-1">
           <span>Amount (USD)</span>
           <input type="number" min="0" step="0.01" className="input" placeholder="0.00" value={form.amount} onChange={set("amount")} />
         </label>
       </div>
-      <div className="flex gap-2">
-        <button className="btn btn-primary text-sm" disabled={saving}>{saving ? "Saving…" : submitLabel}</button>
-        <button type="button" className="btn btn-secondary text-sm" onClick={onCancel} disabled={saving}>Cancel</button>
+      <div className="flex gap-2 justify-end pt-1">
+        <button type="button" className="btn btn-secondary text-xs" onClick={onCancel} disabled={saving}>Cancel</button>
+        <button className="btn btn-primary text-xs px-5" disabled={saving}>{saving ? "Saving…" : submitLabel}</button>
       </div>
     </form>
   );
@@ -133,7 +134,13 @@ export default function MilestonesTab({ projectId, project, canEdit, onChanged, 
     update(milestone._id, { status: "in review" }, "Submitted. The client has been notified.");
   };
 
-  if (loading) return <div className="text-slate-400 text-sm">Loading milestones…</div>;
+  if (loading)
+    return (
+      <div className="card p-8 text-center text-slate-400">
+        <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+        <p className="text-xs">Loading milestones…</p>
+      </div>
+    );
 
   const now = new Date();
   const total = milestones.length;
@@ -149,47 +156,72 @@ export default function MilestonesTab({ projectId, project, canEdit, onChanged, 
   });
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       {!project?.clientEmail && (
-        <div className="rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-4 py-3 text-sm text-indigo-200 flex flex-wrap items-center justify-between gap-3">
-          <span>No client is connected yet. Invite them so they can review and approve milestones.</span>
-          {onGoToClient && <button onClick={onGoToClient} className="btn btn-secondary text-xs py-1.5">Invite client</button>}
-        </div>
-      )}
-
-      <div className="card">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <div className="text-xs uppercase tracking-wide text-slate-400">Delivery progress</div>
-            <div className="text-2xl font-bold mt-1">
-              {approved.length} of {total} approved
-            </div>
-            <div className="text-xs text-slate-400 mt-1">
-              {money(approvedValue)} approved of {money(totalValue)}
-              {inReview > 0 ? ` · ${inReview} waiting for the client` : ""}
-            </div>
+        <div className="rounded-2xl border border-indigo-500/30 bg-indigo-500/10 px-5 py-3.5 text-xs text-indigo-300 dark:text-indigo-200 light:text-indigo-900 flex flex-wrap items-center justify-between gap-3 shadow-sm">
+          <div className="flex items-center gap-2">
+            <UserPlus className="w-4 h-4 text-indigo-400" />
+            <span>No client is connected yet. Invite them so they can review and approve milestones.</span>
           </div>
-          {canEdit && !adding && (
-            <button className="btn btn-primary text-sm" onClick={() => { setAdding(true); setEditingId(null); }}>
-              + Add milestone
+          {onGoToClient && (
+            <button onClick={onGoToClient} className="btn btn-secondary text-xs py-1.5 px-3">
+              Invite client
             </button>
           )}
         </div>
-        <div className="h-2.5 rounded-full bg-slate-800 overflow-hidden mt-4">
-          <div className="h-full bg-gradient-to-r from-indigo-500 to-cyan-400 rounded-full transition-all" style={{ width: `${percent}%` }} />
+      )}
+
+      {/* Overview Card */}
+      <div className="card p-6 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-400 light:text-slate-500">
+              Delivery progress
+            </div>
+            <div className="text-2xl font-extrabold text-white dark:text-white light:text-slate-900 tracking-tight">
+              {approved.length} of {total} milestones approved
+            </div>
+            <div className="text-xs text-slate-400 dark:text-slate-400 light:text-slate-600 font-medium">
+              {money(approvedValue)} approved of {money(totalValue)} total scope
+              {inReview > 0 ? ` · ${inReview} awaiting client review` : ""}
+            </div>
+          </div>
+
+          {canEdit && !adding && (
+            <button className="btn btn-primary text-xs px-4 py-2.5" onClick={() => { setAdding(true); setEditingId(null); }}>
+              <Plus className="w-4 h-4" />
+              <span>Add Milestone</span>
+            </button>
+          )}
+        </div>
+
+        <div className="h-2.5 rounded-full bg-slate-800 dark:bg-slate-800 light:bg-slate-200 overflow-hidden">
+          <div
+            className="h-full bg-gradient-to-r from-indigo-500 via-indigo-400 to-cyan-400 rounded-full transition-all duration-500"
+            style={{ width: `${percent}%` }}
+          />
         </div>
       </div>
 
       {adding && <MilestoneForm initial={emptyForm} submitLabel="Add milestone" saving={saving} onSubmit={create} onCancel={() => setAdding(false)} />}
 
       {total === 0 && !adding ? (
-        <div className="card text-center py-10 text-slate-400 space-y-2">
-          <div className="text-white font-semibold">Break the project into milestones</div>
-          <p className="text-sm">Each milestone has a due date and a price. When you submit one, your client reviews and approves it, and an invoice is drafted automatically.</p>
-          {canEdit && <button className="btn btn-primary text-sm mt-2" onClick={() => setAdding(true)}>Add your first milestone</button>}
+        <div className="card p-12 text-center text-slate-400 space-y-3">
+          <div className="w-14 h-14 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-2xl flex items-center justify-center mx-auto">
+            <CheckCircle2 className="w-7 h-7" />
+          </div>
+          <div className="text-base font-bold text-white dark:text-white light:text-slate-900">Break the project into milestones</div>
+          <p className="text-xs text-slate-400 dark:text-slate-400 light:text-slate-500 max-w-md mx-auto">
+            Each milestone has a due date and price tag. Submitting a milestone allows your client to review, approve, and auto-draft an invoice.
+          </p>
+          {canEdit && (
+            <button className="btn btn-primary text-xs px-5 py-2.5 mt-2" onClick={() => setAdding(true)}>
+              Add your first milestone
+            </button>
+          )}
         </div>
       ) : (
-        <ol className="relative space-y-4 border-l border-slate-800 ml-2 pl-6">
+        <ol className="relative space-y-5 border-l-2 border-slate-800/80 dark:border-slate-800/80 light:border-slate-300 ml-3 pl-6">
           {ordered.map((m) => {
             const meta = STATUS[m.status] || STATUS.pending;
             const overdue = m.status !== "approved" && m.dueDate && new Date(m.dueDate) < now;
@@ -199,7 +231,8 @@ export default function MilestonesTab({ projectId, project, canEdit, onChanged, 
 
             if (editingId === m._id) {
               return (
-                <li key={m._id}>
+                <li key={m._id} className="relative">
+                  <span className={`absolute -left-[31px] top-6 w-3.5 h-3.5 rounded-full ring-4 ring-slate-950 dark:ring-slate-950 light:ring-slate-50 ${meta.dot}`} />
                   <MilestoneForm
                     initial={{ title: m.title, description: m.description || "", dueDate: toInputDate(m.dueDate), amount: m.amount ?? "" }}
                     submitLabel="Save changes"
@@ -213,53 +246,63 @@ export default function MilestonesTab({ projectId, project, canEdit, onChanged, 
 
             return (
               <li key={m._id} className="relative">
-                <span className={`absolute -left-[31px] top-5 w-3 h-3 rounded-full ring-4 ring-slate-950 ${meta.dot}`} />
-                <div className="card">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="font-semibold text-white">{m.title}</div>
-                      {m.description && <div className="text-sm text-slate-400 mt-1 whitespace-pre-wrap">{m.description}</div>}
+                <span className={`absolute -left-[31px] top-6 w-3.5 h-3.5 rounded-full ring-4 ring-slate-950 dark:ring-slate-950 light:ring-slate-50 ${meta.dot}`} />
+                <div className="card p-5 space-y-3 hover:border-slate-700/80 transition-all">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0 space-y-1">
+                      <div className="text-base font-bold text-white dark:text-white light:text-slate-900 leading-snug">{m.title}</div>
+                      {m.description && <div className="text-xs text-slate-400 dark:text-slate-400 light:text-slate-600 whitespace-pre-wrap leading-relaxed">{m.description}</div>}
                     </div>
                     <Chip status={m.status} />
                   </div>
 
-                  <div className="flex flex-wrap items-center justify-between gap-2 mt-3 text-xs">
-                    <span className={overdue ? "text-red-300 font-medium" : "text-slate-400"}>
+                  <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-800/60 dark:border-slate-800/60 light:border-slate-200/80 text-xs">
+                    <span className={`flex items-center gap-1.5 ${overdue ? "text-rose-400 font-semibold" : "text-slate-400 dark:text-slate-400 light:text-slate-500"}`}>
+                      <Calendar className="w-3.5 h-3.5" />
                       {m.dueDate ? `${overdue ? "Overdue · " : "Due "}${fmt(m.dueDate)}` : "No due date"}
                     </span>
-                    <span className="text-slate-200 font-medium">{money(m.amount)}</span>
+                    <span className="text-white dark:text-white light:text-slate-900 font-bold text-sm">{money(m.amount)}</span>
                   </div>
 
                   {m.status === "changes requested" && latestChange && (
-                    <div className="mt-3 rounded-lg border border-orange-500/30 bg-orange-500/10 p-3 text-sm text-orange-100">
-                      <div className="text-[11px] uppercase tracking-wide text-orange-300 font-semibold mb-1">Client asked for changes{latestChange.createdAt ? ` · ${fmt(latestChange.createdAt)}` : ""}</div>
+                    <div className="rounded-xl border border-orange-500/30 bg-orange-500/10 p-3 text-xs text-orange-200">
+                      <div className="text-[10px] uppercase tracking-wider text-orange-400 font-bold mb-1">
+                        Client asked for changes{latestChange.createdAt ? ` · ${fmt(latestChange.createdAt)}` : ""}
+                      </div>
                       {latestChange.comment}
                     </div>
                   )}
                   {m.status === "approved" && (
-                    <div className="mt-3 text-xs text-emerald-300">Approved{m.approvedAt ? ` on ${fmt(m.approvedAt)}` : ""}. A draft invoice was created in the Invoices tab.</div>
+                    <div className="text-xs text-emerald-400 dark:text-emerald-300 font-medium flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4" />
+                      Approved{m.approvedAt ? ` on ${fmt(m.approvedAt)}` : ""}. Invoice automatically drafted.
+                    </div>
                   )}
 
                   {canEdit && (
-                    <div className="flex flex-wrap gap-2 mt-4">
+                    <div className="flex flex-wrap gap-2 pt-2">
                       {(m.status === "pending" || m.status === "changes requested") && (
-                        <button className="btn btn-primary text-xs py-1.5" disabled={busy} onClick={() => submitForReview(m)}>
-                          {busy ? "Submitting…" : m.status === "changes requested" ? "Resubmit for review" : "Submit for client review"}
+                        <button className="btn btn-primary text-xs py-1.5 px-3" disabled={busy} onClick={() => submitForReview(m)}>
+                          <Send className="w-3.5 h-3.5" />
+                          <span>{busy ? "Submitting…" : m.status === "changes requested" ? "Resubmit for review" : "Submit for review"}</span>
                         </button>
                       )}
                       {m.status === "in review" && (
-                        <button className="btn btn-secondary text-xs py-1.5" disabled={busy} onClick={() => update(m._id, { status: "pending" }, "Withdrawn from review")}>
-                          Withdraw from review
+                        <button className="btn btn-secondary text-xs py-1.5 px-3" disabled={busy} onClick={() => update(m._id, { status: "pending" }, "Withdrawn from review")}>
+                          <Undo2 className="w-3.5 h-3.5" />
+                          <span>Withdraw from review</span>
                         </button>
                       )}
                       {editable && (
-                        <button className="btn btn-secondary text-xs py-1.5" disabled={busy} onClick={() => { setEditingId(m._id); setAdding(false); }}>
-                          Edit
+                        <button className="btn btn-secondary text-xs py-1.5 px-3" disabled={busy} onClick={() => { setEditingId(m._id); setAdding(false); }}>
+                          <Edit className="w-3.5 h-3.5" />
+                          <span>Edit</span>
                         </button>
                       )}
                       {editable && (
-                        <button className="btn btn-secondary text-xs py-1.5 text-red-300 hover:text-red-200" disabled={busy} onClick={() => remove(m)}>
-                          Delete
+                        <button className="btn btn-danger text-xs py-1.5 px-3" disabled={busy} onClick={() => remove(m)}>
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Delete</span>
                         </button>
                       )}
                     </div>

@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import toast from "react-hot-toast";
 import api from "../api/axios.js";
 import { useAuth } from "../context/AuthContext.jsx";
+import { Bot, Mic, Send, X, Maximize2, Minimize2, Plus, Trash2, Menu, Sparkles } from "lucide-react";
 
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
@@ -114,8 +115,6 @@ export default function VoiceAssistant({ projectId = null }) {
   };
 
   // ---------- open / close ----------
-  // Every time the robot is clicked the assistant opens on a NEW chat (like ChatGPT).
-  // Old chats live in the sidebar (expanded view).
   useEffect(() => {
     if (open) {
       startNewChat();
@@ -159,7 +158,6 @@ export default function VoiceAssistant({ projectId = null }) {
     setMessages((prev) => [...prev, { role: "user", content: message }]);
     setStatus("thinking");
     try {
-      // No conversationId => backend creates a new chat; otherwise continues that chat
       const res = await api.post("/assistant/chat", {
         message,
         ...(conversationId ? { conversationId } : {}),
@@ -172,7 +170,7 @@ export default function VoiceAssistant({ projectId = null }) {
         setMessages((prev) => [...prev, { role: "assistant", content: res.data.reply }]);
         speak(res.data.reply);
       }
-      loadConversations(); // refresh sidebar (new chat appears / chat moves to top)
+      loadConversations();
     } catch (err) {
       const errMsg = err.response?.data?.message || "Sorry, I couldn't process that. Please try again.";
       if (sessionRef.current === mySession) {
@@ -234,7 +232,7 @@ export default function VoiceAssistant({ projectId = null }) {
   };
 
   const statusLabel = {
-    idle: "Tap mic or type to talk to Sphere",
+    idle: "Tap mic or type to ask Sphere AI",
     listening: "🎙️ Listening...",
     thinking: "💭 Thinking...",
     speaking: "🔊 Speaking...",
@@ -246,19 +244,24 @@ export default function VoiceAssistant({ projectId = null }) {
   // ---------- shared UI pieces ----------
   const renderMessages = (large) => (
     <>
-      {loadingChat && <p className="text-sm text-slate-400 text-center mt-8">Loading conversation...</p>}
+      {loadingChat && <p className="text-xs text-slate-400 text-center mt-8">Loading conversation...</p>}
       {!loadingChat && messages.length === 0 && (
-        <p className="text-sm text-slate-400 text-center mt-8">
-          Try: "What's the status of my projects?" or just say hi 👋
-        </p>
+        <div className="text-center mt-8 space-y-2">
+          <div className="w-10 h-10 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-xl flex items-center justify-center mx-auto">
+            <Sparkles className="w-5 h-5" />
+          </div>
+          <p className="text-xs text-slate-400">
+            Ask: "What's the status of my project milestones?" or "Summarize recent notes"
+          </p>
+        </div>
       )}
       {messages.map((m, i) => (
         <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
           <div
-            className={`${large ? "max-w-[70%] px-4 py-2.5 text-base" : "max-w-[80%] px-3 py-2 text-sm"} rounded-2xl whitespace-pre-wrap break-words ${
+            className={`${large ? "max-w-[70%] px-4 py-2.5 text-sm" : "max-w-[85%] px-3 py-2 text-xs"} rounded-2xl whitespace-pre-wrap break-words ${
               m.role === "user"
-                ? "bg-brand-600 text-white rounded-br-sm"
-                : "bg-slate-100 text-slate-700 rounded-bl-sm"
+                ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20 rounded-br-sm"
+                : "bg-slate-900 dark:bg-slate-900 light:bg-slate-100 text-slate-100 dark:text-slate-100 light:text-slate-900 border border-slate-800 dark:border-slate-800 light:border-slate-200 rounded-bl-sm"
             }`}
           >
             {m.content}
@@ -267,11 +270,7 @@ export default function VoiceAssistant({ projectId = null }) {
       ))}
       {status === "thinking" && (
         <div className="flex justify-start">
-          <div
-            className={`bg-slate-100 text-slate-400 rounded-2xl italic ${
-              large ? "px-4 py-2.5 text-base" : "px-3 py-2 text-sm"
-            }`}
-          >
+          <div className={`bg-slate-900 text-slate-400 rounded-2xl italic text-xs ${large ? "px-4 py-2.5" : "px-3 py-2"}`}>
             Sphere is thinking...
           </div>
         </div>
@@ -285,15 +284,15 @@ export default function VoiceAssistant({ projectId = null }) {
       <button
         type="button"
         onClick={startListening}
-        className={`${large ? "w-12 h-12 text-xl" : "w-10 h-10 text-lg"} rounded-full flex items-center justify-center flex-shrink-0 ${
-          status === "listening" ? "bg-red-500 text-white mic-listening" : "bg-brand-50 text-brand-600"
+        className={`${large ? "w-11 h-11 text-lg" : "w-9 h-9 text-base"} rounded-xl flex items-center justify-center flex-shrink-0 transition-all ${
+          status === "listening" ? "bg-rose-500 text-white mic-listening" : "bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/30"
         }`}
         aria-label="Speak"
       >
-        🎙️
+        <Mic className="w-4 h-4" />
       </button>
       <input
-        className={`input ${large ? "text-base py-3" : "text-sm"}`}
+        className={`input ${large ? "text-sm py-2.5" : "text-xs py-2"}`}
         placeholder="Type a message..."
         value={textInput}
         onChange={(e) => setTextInput(e.target.value)}
@@ -301,57 +300,51 @@ export default function VoiceAssistant({ projectId = null }) {
       />
       <button
         type="submit"
-        className={`btn btn-primary ${large ? "text-base px-5 py-3" : "text-sm px-3"}`}
+        className="btn btn-primary text-xs px-4 py-2 flex-shrink-0"
         disabled={status === "thinking" || loadingChat}
       >
-        Send
+        <Send className="w-3.5 h-3.5" />
       </button>
     </>
   );
 
-  // ChatGPT-style sidebar: "+ New conversation" + full chat history
   const renderSidebar = () => (
     <>
       <div className="flex items-center gap-2 mb-4">
-        <span className="w-8 h-8 rounded-lg bg-brand-600 text-white flex items-center justify-center text-sm font-bold">
-          S
-        </span>
-        <span className="font-semibold text-brand-700">Sphere</span>
+        <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-cyan-400 text-white flex items-center justify-center font-bold text-xs">
+          <Bot className="w-4 h-4" />
+        </div>
+        <span className="font-bold text-white text-sm">Sphere AI</span>
       </div>
 
-      <button onClick={startNewChat} className="btn btn-primary text-sm w-full mb-4">
-        ＋ New conversation
+      <button onClick={startNewChat} className="btn btn-primary text-xs w-full mb-4">
+        <Plus className="w-4 h-4" /> New Conversation
       </button>
 
-      <div className="flex-1 overflow-y-auto -mx-1 px-1">
-        {grouped.length === 0 && (
-          <p className="text-xs text-slate-400 px-2 mt-2">Your chats will show up here.</p>
-        )}
+      <div className="flex-1 overflow-y-auto -mx-1 px-1 space-y-3">
+        {grouped.length === 0 && <p className="text-xs text-slate-400 px-2 mt-2">Your past chats will appear here.</p>}
         {grouped.map((group) => (
-          <div key={group.label} className="mb-4">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 px-2 mb-1">
-              {group.label}
-            </p>
+          <div key={group.label} className="space-y-1">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 px-2 mb-1">{group.label}</p>
             {group.items.map((c) => (
               <div key={c._id} className="group relative">
                 <button
                   onClick={() => openConversation(c._id)}
                   title={c.title}
-                  className={`w-full text-left truncate px-3 py-2 pr-9 rounded-lg text-sm transition-colors ${
+                  className={`w-full text-left truncate px-3 py-2 pr-8 rounded-xl text-xs transition-colors ${
                     c._id === activeId
-                      ? "bg-brand-100 text-brand-700 font-medium"
-                      : "text-slate-600 hover:bg-slate-200"
+                      ? "bg-indigo-600/20 text-indigo-300 font-semibold border border-indigo-500/30"
+                      : "text-slate-400 hover:text-white hover:bg-slate-800/60"
                   }`}
                 >
                   {c.title}
                 </button>
                 <button
                   onClick={(e) => deleteConversation(c._id, e)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-red-500 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-400 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1"
                   aria-label="Delete conversation"
-                  title="Delete"
                 >
-                  🗑️
+                  <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>
             ))}
@@ -359,10 +352,10 @@ export default function VoiceAssistant({ projectId = null }) {
         ))}
       </div>
 
-      <div className="pt-3 border-t border-slate-200 mt-2">
+      <div className="pt-3 border-t border-slate-800 mt-2">
         <p className="text-xs text-slate-400 mb-2 truncate">Hi {user?.name} 👋</p>
-        <button onClick={() => setExpanded(false)} className="btn btn-secondary text-sm w-full">
-          ⤡ Shrink
+        <button onClick={() => setExpanded(false)} className="btn btn-secondary text-xs w-full">
+          <Minimize2 className="w-3.5 h-3.5" /> Shrink Window
         </button>
       </div>
     </>
@@ -370,70 +363,43 @@ export default function VoiceAssistant({ projectId = null }) {
 
   return (
     <>
-      {/* Floating toggle button — opening it always starts a NEW chat */}
+      {/* Floating Action Button */}
       <button
         onClick={() => setOpen((o) => !o)}
-        className="fixed bottom-5 right-5 w-14 h-14 rounded-full bg-brand-600 text-white shadow-lg flex items-center justify-center text-2xl hover:bg-brand-700 z-30"
+        className="fixed bottom-6 right-6 w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-cyan-400 text-white shadow-xl shadow-indigo-600/30 flex items-center justify-center hover:scale-105 transition-all z-40"
         aria-label="Open AI assistant"
       >
-        {open ? "✕" : "🤖"}
+        {open ? <X className="w-6 h-6" /> : <Bot className="w-6 h-6" />}
       </button>
 
-      {/* ============ EXPANDED (full screen) ============ */}
+      {/* EXPANDED FULLSCREEN */}
       {open && expanded && (
-        <div className="fixed inset-0 bg-white z-30 flex">
-          {/* Desktop sidebar */}
-          <div className="hidden sm:flex w-64 flex-shrink-0 bg-slate-50 border-r border-slate-200 flex-col p-4">
+        <div className="fixed inset-0 bg-slate-950/95 dark:bg-slate-950/95 light:bg-white z-50 flex animate-fadeIn">
+          <div className="hidden sm:flex w-64 flex-shrink-0 bg-slate-900/90 border-r border-slate-800 flex-col p-4">
             {renderSidebar()}
           </div>
 
-          {/* Mobile sidebar drawer */}
           {sidebarOpen && (
-            <div className="sm:hidden fixed inset-0 z-40 flex">
-              <div className="w-72 max-w-[80vw] bg-slate-50 flex flex-col p-4 shadow-xl">{renderSidebar()}</div>
-              <div className="flex-1 bg-black/40" onClick={() => setSidebarOpen(false)} />
+            <div className="sm:hidden fixed inset-0 z-50 flex">
+              <div className="w-72 max-w-[80vw] bg-slate-900 flex flex-col p-4 shadow-2xl">{renderSidebar()}</div>
+              <div className="flex-1 bg-black/50" onClick={() => setSidebarOpen(false)} />
             </div>
           )}
 
-          {/* Main chat column */}
           <div className="flex-1 flex flex-col min-w-0">
-            <div className="px-4 sm:px-8 py-4 border-b border-slate-200 flex items-center justify-between flex-shrink-0 gap-3">
+            <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between flex-shrink-0 gap-3">
               <div className="flex items-center gap-3 min-w-0">
-                <button
-                  onClick={() => setSidebarOpen(true)}
-                  className="sm:hidden text-slate-500 hover:text-brand-600 text-xl leading-none"
-                  aria-label="Show chat history"
-                >
-                  ☰
+                <button onClick={() => setSidebarOpen(true)} className="sm:hidden text-slate-400 hover:text-white" aria-label="Show chat history">
+                  <Menu className="w-5 h-5" />
                 </button>
-                <p className="font-semibold text-brand-700 truncate">{activeId ? activeTitle : "New chat"}</p>
+                <p className="font-bold text-sm text-white truncate">{activeId ? activeTitle : "New chat"}</p>
               </div>
-              <div className="flex items-center gap-4 flex-shrink-0">
-                <button
-                  onClick={startNewChat}
-                  className="sm:hidden text-slate-500 hover:text-brand-600 text-lg leading-none"
-                  title="New chat"
-                  aria-label="New chat"
-                >
-                  ＋
+              <div className="flex items-center gap-3 flex-shrink-0">
+                <button onClick={() => setExpanded(false)} className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800">
+                  <Minimize2 className="w-4 h-4" />
                 </button>
-                <button
-                  onClick={() => setExpanded(false)}
-                  className="text-slate-400 hover:text-brand-600 text-lg leading-none"
-                  title="Shrink"
-                  aria-label="Shrink assistant panel"
-                >
-                  ⤡
-                </button>
-                <button
-                  onClick={() => {
-                    setExpanded(false);
-                    setOpen(false);
-                  }}
-                  className="text-slate-400 hover:text-slate-600 text-lg leading-none"
-                  aria-label="Close assistant"
-                >
-                  ✕
+                <button onClick={() => { setExpanded(false); setOpen(false); }} className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800">
+                  <X className="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -442,60 +408,41 @@ export default function VoiceAssistant({ projectId = null }) {
               <div className="max-w-2xl mx-auto w-full px-4 py-8 space-y-4">{renderMessages(true)}</div>
             </div>
 
-            <div className="text-xs text-center text-slate-400 py-1 flex-shrink-0">{statusLabel[status]}</div>
+            <div className="text-[11px] text-center text-slate-500 py-1 flex-shrink-0">{statusLabel[status]}</div>
 
-            <form
-              onSubmit={handleTextSend}
-              className="border-t border-slate-200 flex-shrink-0 px-4 sm:px-8 py-4"
-            >
+            <form onSubmit={handleTextSend} className="border-t border-slate-800 flex-shrink-0 px-6 py-4">
               <div className="max-w-2xl mx-auto w-full flex items-center gap-2">{renderInput(true)}</div>
             </form>
           </div>
         </div>
       )}
 
-      {/* ============ POPUP (small) ============ */}
+      {/* POPUP WIDGET */}
       {open && !expanded && (
-        <div className="fixed bottom-24 right-5 w-[90vw] max-w-sm h-[520px] bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col z-30">
-          <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between flex-shrink-0 gap-2">
+        <div className="fixed bottom-24 right-6 w-[90vw] max-w-sm h-[520px] bg-slate-900/95 dark:bg-slate-900/95 light:bg-white rounded-2xl shadow-2xl border border-slate-800/90 dark:border-slate-800/90 light:border-slate-200 flex flex-col z-40 backdrop-blur-xl animate-fadeIn">
+          <div className="px-4 py-3.5 border-b border-slate-800/80 flex items-center justify-between flex-shrink-0 gap-2">
             <div className="min-w-0">
-              <p className="font-semibold text-brand-700 truncate">{activeId ? activeTitle : "New chat"}</p>
-              <p className="text-xs text-slate-400 truncate">Hi {user?.name}, ask me anything</p>
+              <p className="font-bold text-xs text-white truncate">{activeId ? activeTitle : "Sphere Assistant"}</p>
+              <p className="text-[11px] text-slate-400 truncate">Ask about deliverables or project health</p>
             </div>
-            <div className="flex items-center gap-4 flex-shrink-0">
-              <button
-                onClick={startNewChat}
-                className="text-slate-400 hover:text-brand-600 text-lg leading-none"
-                title="New chat"
-                aria-label="New chat"
-              >
-                ＋
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button onClick={startNewChat} className="p-1 text-slate-400 hover:text-white rounded" title="New chat">
+                <Plus className="w-4 h-4" />
               </button>
-              <button
-                onClick={() => setExpanded(true)}
-                className="text-slate-400 hover:text-brand-600 text-lg leading-none"
-                title="Expand to see chat history"
-                aria-label="Expand assistant panel"
-              >
-                ⤢
+              <button onClick={() => setExpanded(true)} className="p-1 text-slate-400 hover:text-white rounded" title="Expand window">
+                <Maximize2 className="w-4 h-4" />
               </button>
-              <button
-                onClick={() => setOpen(false)}
-                className="text-slate-400 hover:text-slate-600 text-lg leading-none"
-                aria-label="Close assistant"
-              >
-                ✕
+              <button onClick={() => setOpen(false)} className="p-1 text-slate-400 hover:text-white rounded">
+                <X className="w-4 h-4" />
               </button>
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-4 py-3">
-            <div className="space-y-3">{renderMessages(false)}</div>
-          </div>
+          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">{renderMessages(false)}</div>
 
-          <div className="px-4 py-2 text-xs text-center text-slate-400 flex-shrink-0">{statusLabel[status]}</div>
+          <div className="px-4 py-1 text-[11px] text-center text-slate-400 flex-shrink-0 font-medium">{statusLabel[status]}</div>
 
-          <form onSubmit={handleTextSend} className="p-3 border-t border-slate-200 flex items-center gap-2 flex-shrink-0">
+          <form onSubmit={handleTextSend} className="p-3 border-t border-slate-800/80 flex items-center gap-2 flex-shrink-0">
             {renderInput(false)}
           </form>
         </div>

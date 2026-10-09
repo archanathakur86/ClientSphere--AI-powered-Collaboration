@@ -5,6 +5,7 @@ import api, { clearPortalSession, PORTAL_SESSION_EXPIRED } from "../api/axios.js
 import { useRealtime } from "../hooks/useRealtime.js";
 import NotificationBell from "../components/NotificationBell.jsx";
 import OnlineUsersPill from "../components/OnlineUsersPill.jsx";
+import { Sparkles, CheckCircle2, Clock, AlertTriangle, FileText, Download, Send, CreditCard, ShieldCheck, LogOut, MessageSquare } from "lucide-react";
 
 const money = (amount, currency = "usd") => {
   try {
@@ -17,28 +18,31 @@ const money = (amount, currency = "usd") => {
 const formatDate = (value) => (value ? new Date(value).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "");
 
 const MILESTONE_STATUS = {
-  pending: { label: "Upcoming", chip: "bg-slate-500/10 text-slate-300 border-slate-500/30", hint: "The freelancer hasn't submitted this yet." },
-  "in review": { label: "Needs your review", chip: "bg-amber-500/10 text-amber-300 border-amber-500/30", hint: "" },
-  "changes requested": { label: "Changes requested", chip: "bg-orange-500/10 text-orange-300 border-orange-500/30", hint: "Waiting for the freelancer to revise this." },
-  approved: { label: "Approved", chip: "bg-emerald-500/10 text-emerald-300 border-emerald-500/30", hint: "" },
+  pending: { label: "Upcoming", chip: "bg-slate-500/10 text-slate-400 dark:text-slate-300 light:text-slate-700 border-slate-500/30", hint: "The freelancer hasn't submitted this yet." },
+  "in review": { label: "Needs your review", chip: "bg-amber-500/10 text-amber-400 dark:text-amber-300 light:text-amber-700 border-amber-500/30", hint: "" },
+  "changes requested": { label: "Changes requested", chip: "bg-orange-500/10 text-orange-400 dark:text-orange-300 light:text-orange-700 border-orange-500/30", hint: "Waiting for the freelancer to revise this." },
+  approved: { label: "Approved", chip: "bg-emerald-500/10 text-emerald-400 dark:text-emerald-300 light:text-emerald-700 border-emerald-500/30", hint: "" },
 };
 
 const INVOICE_STATUS = {
-  sent: "bg-indigo-500/10 text-indigo-300 border-indigo-500/30",
-  overdue: "bg-red-500/10 text-red-300 border-red-500/30",
-  paid: "bg-emerald-500/10 text-emerald-300 border-emerald-500/30",
+  sent: "bg-indigo-500/10 text-indigo-400 dark:text-indigo-300 light:text-indigo-700 border-indigo-500/30",
+  overdue: "bg-rose-500/10 text-rose-400 dark:text-rose-300 light:text-rose-700 border-rose-500/30",
+  paid: "bg-emerald-500/10 text-emerald-400 dark:text-emerald-300 light:text-emerald-700 border-emerald-500/30",
 };
 
 const Chip = ({ className, children }) => (
-  <span className={`text-[11px] font-semibold uppercase tracking-wide px-2.5 py-1 rounded-full border whitespace-nowrap ${className}`}>{children}</span>
+  <span className={`text-[11px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full border whitespace-nowrap ${className}`}>{children}</span>
 );
 
 const Screen = ({ title, children }) => (
-  <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4">
-    <div className="card max-w-md w-full text-center space-y-3">
-      <div className="text-xs uppercase tracking-widest text-indigo-400 font-semibold">ClientSphere</div>
-      <h1 className="text-xl font-bold text-white">{title}</h1>
-      <div className="text-sm text-slate-400 space-y-3">{children}</div>
+  <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4 bg-radial-gradient">
+    <div className="card max-w-md w-full text-center space-y-4 p-8 shadow-2xl">
+      <div className="w-12 h-12 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-2xl flex items-center justify-center mx-auto">
+        <Sparkles className="w-6 h-6" />
+      </div>
+      <div className="text-xs uppercase tracking-widest text-indigo-400 font-bold">ClientSphere Portal</div>
+      <h1 className="text-xl font-bold text-white tracking-tight">{title}</h1>
+      <div className="text-xs text-slate-400 space-y-3 leading-relaxed">{children}</div>
     </div>
   </div>
 );
@@ -69,7 +73,6 @@ export default function ClientPortal() {
 
   const loadPortal = useCallback(async () => {
     const res = await api.get(`/client/projects/${projectId}`);
-    // Every visit returns a renewed session token, so an active client stays signed in.
     if (res.data.clientAccessToken) {
       localStorage.setItem("portalToken", res.data.clientAccessToken);
       localStorage.setItem("portalProjectId", projectId);
@@ -79,9 +82,6 @@ export default function ClientPortal() {
     return res.data;
   }, [projectId]);
 
-  // Boot: either exchange the magic link (then hide the secret from the URL), or resume the
-  // stored session. The page works after a refresh and when opened from an email link
-  // that has no token in it.
   useEffect(() => {
     let cancelled = false;
     const boot = async () => {
@@ -90,8 +90,6 @@ export default function ClientPortal() {
           const res = await api.get(`/client/magic/${projectId}/${urlToken}`);
           if (cancelled) return;
           storeSession(res.data.clientAccessToken);
-          // Replace the URL so the secret link isn't left in history or screenshots.
-          // This re-runs the effect, which then loads the portal with the stored session.
           navigate(`/client/${projectId}`, { replace: true });
           return;
         }
@@ -121,14 +119,12 @@ export default function ClientPortal() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, urlToken]);
 
-  // Session ended somewhere else (revoked / expired): show the friendly screen, not /login.
   useEffect(() => {
     const onExpired = () => setStatus("expired");
     window.addEventListener(PORTAL_SESSION_EXPIRED, onExpired);
     return () => window.removeEventListener(PORTAL_SESSION_EXPIRED, onExpired);
   }, []);
 
-  // Live updates: when the freelancer submits a milestone, sends an invoice, etc.
   useEffect(() => {
     const socket = realtime.socket;
     if (!socket) return undefined;
@@ -137,14 +133,12 @@ export default function ClientPortal() {
     return () => socket.off("notification:new", refresh);
   }, [realtime.socket, loadPortal]);
 
-  // Coming back from Stripe Checkout (?paid=1 / ?payment=cancelled).
   const handledReturn = useRef(false);
   useEffect(() => {
     if (status !== "ready" || handledReturn.current) return;
     if (searchParams.get("paid") === "1") {
       handledReturn.current = true;
       toast.success("Payment received. Thank you!");
-      // The payment webhook can land a moment after the redirect, so refresh twice.
       setTimeout(() => loadPortal().catch(() => null), 2500);
       setTimeout(() => loadPortal().catch(() => null), 8000);
       setSearchParams({}, { replace: true });
@@ -219,8 +213,6 @@ export default function ClientPortal() {
       "Couldn't start the payment"
     );
 
-  // Authenticated downloads can't be plain links, so fetch as a blob. The tab is opened first,
-  // inside the click, because browsers block pop-ups opened after an await.
   const openBlob = async (path, fallbackName) => {
     const win = window.open("", "_blank");
     try {
@@ -247,15 +239,20 @@ export default function ClientPortal() {
   };
 
   if (status === "loading") {
-    return <div className="min-h-screen flex items-center justify-center text-slate-400 bg-slate-950">Opening your portal…</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center text-slate-400 bg-slate-950">
+        <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mr-3" />
+        <span className="text-sm">Opening secure client portal…</span>
+      </div>
+    );
   }
 
   if (status === "needs-link") {
     return (
       <Screen title="Open the link from your invitation">
-        <p>This portal is private. Use the secure link in the email your freelancer sent you to get in.</p>
-        <p className="text-slate-500">Can't find it? Ask them to send a new invitation.</p>
-        <Link to="/" className="inline-block text-indigo-300 hover:text-white text-sm">Learn about ClientSphere</Link>
+        <p>This portal is private. Use the secure magic link in the email your freelancer sent you to get in.</p>
+        <p className="text-slate-500">Can't find it? Ask them to send a fresh invitation.</p>
+        <Link to="/" className="btn btn-primary text-xs inline-flex mt-2">Learn about ClientSphere</Link>
       </Screen>
     );
   }
@@ -264,7 +261,7 @@ export default function ClientPortal() {
     return (
       <Screen title="This access link has expired">
         <p>Your link has expired or the freelancer ended access. Nothing is wrong on your side.</p>
-        <p>Please ask them to send you a fresh invitation link.</p>
+        <p>Please ask your freelancer to send you a fresh invitation link.</p>
       </Screen>
     );
   }
@@ -273,7 +270,7 @@ export default function ClientPortal() {
     return (
       <Screen title="Something went wrong">
         <p>{errorMessage}</p>
-        <button className="btn btn-primary text-sm" onClick={() => window.location.reload()}>Try again</button>
+        <button className="btn btn-primary text-xs mt-2" onClick={() => window.location.reload()}>Try again</button>
       </Screen>
     );
   }
@@ -291,18 +288,31 @@ export default function ClientPortal() {
   const unpaid = invoices.filter((i) => i.status !== "paid");
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
-      <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-20">
-        <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
+    <div className="min-h-screen bg-slate-950 dark:bg-slate-950 light:bg-slate-50 text-slate-100 dark:text-slate-100 light:text-slate-900 font-sans pb-16 bg-radial-gradient">
+      {/* Top Client Header Bar */}
+      <header className="border-b border-slate-800/80 dark:border-slate-800/80 light:border-slate-200 bg-slate-950/80 dark:bg-slate-950/80 light:bg-white/80 backdrop-blur-xl sticky top-0 z-30">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 h-20 flex items-center justify-between gap-4">
           <div className="min-w-0">
-            <div className="text-xs uppercase tracking-widest text-indigo-400 font-semibold">Client Portal</div>
-            <h1 className="text-xl sm:text-2xl font-bold mt-1 truncate">{portal.project.name}</h1>
-            {portal.project.description && <p className="text-sm text-slate-400 line-clamp-1">{portal.project.description}</p>}
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                Secure Client Portal
+              </span>
+            </div>
+            <h1 className="text-xl sm:text-2xl font-extrabold text-white dark:text-white light:text-slate-900 tracking-tight mt-0.5 truncate">
+              {portal.project.name}
+            </h1>
+            {portal.project.description && (
+              <p className="text-xs text-slate-400 dark:text-slate-400 light:text-slate-500 truncate max-w-lg">
+                {portal.project.description}
+              </p>
+            )}
           </div>
-          <div className="flex items-center gap-3 flex-shrink-0">
-            <div className="hidden sm:block text-right text-xs text-slate-400">
-              <div className="text-slate-200">{portal.project.clientName || "Client"}</div>
-              <button onClick={signOut} className="hover:text-white underline-offset-2 hover:underline">Sign out</button>
+          <div className="flex items-center gap-4 flex-shrink-0">
+            <div className="hidden sm:block text-right text-xs">
+              <div className="font-bold text-white dark:text-white light:text-slate-900">{portal.project.clientName || "Client"}</div>
+              <button onClick={signOut} className="text-slate-400 hover:text-rose-400 text-[11px] font-medium transition-colors">
+                Sign out
+              </button>
             </div>
             <NotificationBell
               notifications={realtime.notifications}
@@ -314,75 +324,109 @@ export default function ClientPortal() {
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 py-8 space-y-6">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 pt-8 space-y-6">
         {(awaitingReview > 0 || unpaid.length > 0) && (
-          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200 space-y-1">
+          <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-5 py-4 text-xs text-amber-300 dark:text-amber-200 shadow-md space-y-1 animate-fadeIn">
             {awaitingReview > 0 && (
-              <div>
-                {awaitingReview} milestone{awaitingReview > 1 ? "s are" : " is"} waiting for your review.
+              <div className="font-semibold flex items-center gap-2">
+                <Clock className="w-4 h-4 text-amber-400" />
+                <span>{awaitingReview} milestone{awaitingReview > 1 ? "s are" : " is"} awaiting your review & approval below.</span>
               </div>
             )}
             {unpaid.length > 0 && (
-              <div>
-                {unpaid.length} invoice{unpaid.length > 1 ? "s are" : " is"} awaiting payment.
+              <div className="font-semibold flex items-center gap-2">
+                <CreditCard className="w-4 h-4 text-amber-400" />
+                <span>{unpaid.length} invoice{unpaid.length > 1 ? "s are" : " is"} awaiting payment.</span>
               </div>
             )}
           </div>
         )}
 
-        <section className="card">
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+        {/* Progress Card */}
+        <section className="card p-6 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <div className="text-xs uppercase tracking-wide text-slate-400">Progress</div>
-              <div className="text-2xl font-bold mt-1">{progress}% complete</div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400 light:text-slate-500">
+                Delivery Progress
+              </div>
+              <div className="text-2xl font-extrabold text-white dark:text-white light:text-slate-900 tracking-tight mt-0.5">
+                {progress}% Complete
+              </div>
             </div>
             <OnlineUsersPill users={realtime.onlineUsers || []} />
           </div>
-          <div className="h-3 rounded-full bg-slate-800 overflow-hidden">
-            <div className="h-full bg-gradient-to-r from-indigo-500 to-cyan-400 rounded-full transition-all" style={{ width: `${progress}%` }} />
+          <div className="h-3 rounded-full bg-slate-800 dark:bg-slate-800 light:bg-slate-200 overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-indigo-500 to-cyan-400 rounded-full transition-all duration-500"
+              style={{ width: `${progress}%` }}
+            />
           </div>
         </section>
 
-        <section className="card">
-          <div className="flex items-center justify-between gap-3 mb-3">
-            <h2 className="text-sm font-semibold">Latest update</h2>
-            {portal.weeklyUpdateSentAt && <span className="text-xs text-slate-500">{formatDate(portal.weeklyUpdateSentAt)}</span>}
+        {/* Latest Progress Update */}
+        <section className="card p-6 space-y-3">
+          <div className="flex items-center justify-between gap-3 border-b border-slate-800 dark:border-slate-800 light:border-slate-200 pb-3">
+            <h2 className="text-sm font-bold text-white dark:text-white light:text-slate-900 flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-indigo-400" />
+              <span>Latest Executive Progress Report</span>
+            </h2>
+            {portal.weeklyUpdateSentAt && (
+              <span className="text-xs text-slate-400 dark:text-slate-400 light:text-slate-500 font-medium">
+                {formatDate(portal.weeklyUpdateSentAt)}
+              </span>
+            )}
           </div>
           {portal.weeklyUpdate ? (
-            <p className="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">{portal.weeklyUpdate}</p>
+            <p className="text-xs text-slate-300 dark:text-slate-300 light:text-slate-700 leading-relaxed whitespace-pre-wrap">
+              {portal.weeklyUpdate}
+            </p>
           ) : (
-            <p className="text-sm text-slate-500">Your freelancer hasn't sent a progress update yet. It will appear here.</p>
+            <p className="text-xs text-slate-400 dark:text-slate-400 light:text-slate-500">
+              Your freelancer hasn't sent a progress update yet. It will appear here once published.
+            </p>
           )}
         </section>
 
-        <section className="card">
-          <h2 className="text-sm font-semibold mb-4">Milestones</h2>
+        {/* Milestones Approval Section */}
+        <section className="card p-6 space-y-4">
+          <h2 className="text-sm font-bold text-white dark:text-white light:text-slate-900 border-b border-slate-800 dark:border-slate-800 light:border-slate-200 pb-3">
+            Project Deliverables & Milestones
+          </h2>
           {milestones.length === 0 ? (
-            <p className="text-sm text-slate-500">No milestones have been added yet.</p>
+            <p className="text-xs text-slate-400 dark:text-slate-400 light:text-slate-500">No milestones have been added yet.</p>
           ) : (
             <div className="space-y-4">
               {milestones.map((m) => {
                 const meta = MILESTONE_STATUS[m.status] || MILESTONE_STATUS.pending;
                 const history = m.changeRequests || [];
                 return (
-                  <div key={m._id} className="rounded-2xl bg-slate-950 border border-slate-800 p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="font-semibold text-white">{m.title}</div>
-                        {m.description && <div className="text-sm text-slate-400 mt-1 whitespace-pre-wrap">{m.description}</div>}
+                  <div
+                    key={m._id}
+                    className="rounded-2xl bg-slate-950/60 dark:bg-slate-950/60 light:bg-slate-50 border border-slate-800/80 dark:border-slate-800/80 light:border-slate-200 p-5 space-y-3"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0 space-y-1">
+                        <div className="font-bold text-sm text-white dark:text-white light:text-slate-900">{m.title}</div>
+                        {m.description && (
+                          <div className="text-xs text-slate-400 dark:text-slate-400 light:text-slate-600 whitespace-pre-wrap leading-relaxed">
+                            {m.description}
+                          </div>
+                        )}
                       </div>
                       <Chip className={meta.chip}>{meta.label}</Chip>
                     </div>
-                    <div className="flex items-center justify-between mt-3 text-xs text-slate-400">
-                      <span>{m.dueDate ? `Due ${formatDate(m.dueDate)}` : "No due date"}</span>
-                      <span className="text-slate-200 font-medium">{money(m.amount)}</span>
+                    <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-800/60 dark:border-slate-800/60 light:border-slate-200">
+                      <span className="text-slate-400 dark:text-slate-400 light:text-slate-500">
+                        {m.dueDate ? `Due ${formatDate(m.dueDate)}` : "No due date"}
+                      </span>
+                      <span className="text-white dark:text-white light:text-slate-900 font-bold text-sm">{money(m.amount)}</span>
                     </div>
 
                     {history.length > 0 && (
-                      <div className="mt-3 space-y-2">
+                      <div className="space-y-2 pt-1">
                         {history.map((h, i) => (
-                          <div key={i} className="text-xs rounded-lg bg-slate-900 border border-slate-800 p-2.5 text-slate-300">
-                            <span className="text-orange-300 font-medium">You asked for changes{h.createdAt ? ` · ${formatDate(h.createdAt)}` : ""}: </span>
+                          <div key={i} className="text-xs rounded-xl bg-orange-500/10 border border-orange-500/20 p-3 text-orange-200">
+                            <span className="text-orange-400 font-bold">You requested changes{h.createdAt ? ` · ${formatDate(h.createdAt)}` : ""}: </span>
                             {h.comment}
                           </div>
                         ))}
@@ -390,36 +434,46 @@ export default function ClientPortal() {
                     )}
 
                     {m.status === "in review" && (
-                      <div className="mt-4">
+                      <div className="pt-2">
                         {changeFor === m._id ? (
-                          <div className="space-y-2">
+                          <div className="space-y-3 bg-slate-900/90 p-4 rounded-xl border border-slate-800">
                             <textarea
                               value={changeText}
                               onChange={(e) => setChangeText(e.target.value)}
                               rows={3}
                               autoFocus
-                              className="input"
-                              placeholder="What should be changed?"
+                              className="input text-xs"
+                              placeholder="What revisions or changes would you like?"
                             />
-                            <div className="flex gap-2">
-                              <button onClick={() => sendChangeRequest(m)} disabled={busy === `changes:${m._id}`} className="btn btn-primary text-xs py-2">
-                                {busy === `changes:${m._id}` ? "Sending…" : "Send change request"}
+                            <div className="flex gap-2 justify-end">
+                              <button onClick={() => { setChangeFor(null); setChangeText(""); }} className="btn btn-secondary text-xs">
+                                Cancel
                               </button>
-                              <button onClick={() => { setChangeFor(null); setChangeText(""); }} className="btn btn-secondary text-xs py-2">Cancel</button>
+                              <button onClick={() => sendChangeRequest(m)} disabled={busy === `changes:${m._id}`} className="btn btn-primary text-xs px-4">
+                                {busy === `changes:${m._id}` ? "Sending…" : "Submit Request"}
+                              </button>
                             </div>
                           </div>
                         ) : (
                           <div className="flex gap-2">
-                            <button onClick={() => approveMilestone(m)} disabled={Boolean(busy)} className="btn btn-primary text-xs py-2">
-                              {busy === `approve:${m._id}` ? "Approving…" : "Approve"}
+                            <button onClick={() => approveMilestone(m)} disabled={Boolean(busy)} className="btn btn-primary text-xs px-5">
+                              {busy === `approve:${m._id}` ? "Approving…" : "Approve Milestone"}
                             </button>
-                            <button onClick={() => { setChangeFor(m._id); setChangeText(""); }} disabled={Boolean(busy)} className="btn btn-secondary text-xs py-2">Request changes</button>
+                            <button onClick={() => { setChangeFor(m._id); setChangeText(""); }} disabled={Boolean(busy)} className="btn btn-secondary text-xs">
+                              Request Changes
+                            </button>
                           </div>
                         )}
                       </div>
                     )}
-                    {m.status === "approved" && m.approvedAt && <div className="mt-3 text-xs text-emerald-300">Approved on {formatDate(m.approvedAt)}</div>}
-                    {meta.hint && m.status !== "in review" && m.status !== "approved" && <div className="mt-3 text-xs text-slate-500">{meta.hint}</div>}
+                    {m.status === "approved" && m.approvedAt && (
+                      <div className="text-xs text-emerald-400 font-medium flex items-center gap-1.5 pt-1">
+                        <CheckCircle2 className="w-4 h-4" /> Approved on {formatDate(m.approvedAt)}
+                      </div>
+                    )}
+                    {meta.hint && m.status !== "in review" && m.status !== "approved" && (
+                      <div className="text-xs text-slate-500">{meta.hint}</div>
+                    )}
                   </div>
                 );
               })}
@@ -427,20 +481,26 @@ export default function ClientPortal() {
           )}
         </section>
 
-        <section className="card">
-          <h2 className="text-sm font-semibold mb-4">Invoices</h2>
+        {/* Invoices Section */}
+        <section className="card p-6 space-y-4">
+          <h2 className="text-sm font-bold text-white dark:text-white light:text-slate-900 border-b border-slate-800 dark:border-slate-800 light:border-slate-200 pb-3">
+            Invoices & Payments
+          </h2>
           {invoices.length === 0 ? (
-            <p className="text-sm text-slate-500">No invoices yet. They appear here once the freelancer sends one.</p>
+            <p className="text-xs text-slate-400 dark:text-slate-400 light:text-slate-500">No invoices generated yet.</p>
           ) : (
             <div className="space-y-3">
               {invoices.map((invoice) => (
-                <div key={invoice._id} className="rounded-xl bg-slate-950 border border-slate-800 p-4 flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <div className="font-semibold flex items-center gap-2">
+                <div
+                  key={invoice._id}
+                  className="rounded-xl bg-slate-950/60 dark:bg-slate-950/60 light:bg-slate-50 border border-slate-800/80 dark:border-slate-800/80 light:border-slate-200 p-4 flex flex-wrap items-center justify-between gap-4"
+                >
+                  <div className="space-y-1">
+                    <div className="font-bold text-sm text-white dark:text-white light:text-slate-900 flex items-center gap-2">
                       {invoice.invoiceNumber || "Invoice"}
                       <Chip className={INVOICE_STATUS[invoice.status] || INVOICE_STATUS.sent}>{invoice.status}</Chip>
                     </div>
-                    <div className="text-xs text-slate-400 mt-1">
+                    <div className="text-xs text-slate-400 dark:text-slate-400 light:text-slate-500 font-medium">
                       {money(invoice.amount, invoice.currency)}
                       {invoice.dueDate && invoice.status !== "paid" ? ` · due ${formatDate(invoice.dueDate)}` : ""}
                       {invoice.paidAt ? ` · paid ${formatDate(invoice.paidAt)}` : ""}
@@ -449,13 +509,14 @@ export default function ClientPortal() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => openBlob(`/client/projects/${projectId}/invoices/${invoice._id}/pdf`, `${invoice.invoiceNumber || "invoice"}.pdf`)}
-                      className="btn btn-secondary text-xs py-2"
+                      className="btn btn-secondary text-xs px-3 py-1.5"
                     >
-                      PDF
+                      <Download className="w-3.5 h-3.5" /> PDF
                     </button>
                     {invoice.status !== "paid" && (
-                      <button onClick={() => payInvoice(invoice)} disabled={busy === `pay:${invoice._id}`} className="btn btn-primary text-xs py-2">
-                        {busy === `pay:${invoice._id}` ? "Opening…" : "Pay now"}
+                      <button onClick={() => payInvoice(invoice)} disabled={busy === `pay:${invoice._id}`} className="btn btn-primary text-xs px-4 py-1.5">
+                        <CreditCard className="w-3.5 h-3.5" />
+                        <span>{busy === `pay:${invoice._id}` ? "Opening…" : "Pay Now"}</span>
                       </button>
                     )}
                   </div>
@@ -465,24 +526,32 @@ export default function ClientPortal() {
           )}
         </section>
 
-        <section className="grid md:grid-cols-2 gap-4">
-          <div className="card">
-            <h2 className="text-sm font-semibold mb-3">Shared files</h2>
+        {/* Shared Files & Notes Grid */}
+        <section className="grid md:grid-cols-2 gap-5">
+          <div className="card p-6 space-y-3">
+            <h2 className="text-sm font-bold text-white dark:text-white light:text-slate-900 border-b border-slate-800 dark:border-slate-800 light:border-slate-200 pb-2">
+              Shared Project Deliverables
+            </h2>
             {files.length === 0 ? (
-              <p className="text-sm text-slate-500">No files have been shared with you yet.</p>
+              <p className="text-xs text-slate-400 dark:text-slate-400 light:text-slate-500">No shared files available.</p>
             ) : (
               <ul className="space-y-2">
                 {files.map((file) => (
-                  <li key={file._id} className="flex items-center justify-between gap-3 rounded-lg bg-slate-950 border border-slate-800 px-3 py-2">
+                  <li
+                    key={file._id}
+                    className="flex items-center justify-between gap-3 rounded-xl bg-slate-950/60 dark:bg-slate-950/60 light:bg-slate-50 border border-slate-800/80 dark:border-slate-800/80 light:border-slate-200 p-3"
+                  >
                     <div className="min-w-0">
-                      <div className="text-sm text-slate-200 truncate">{file.originalName}</div>
-                      <div className="text-[11px] text-slate-500">
-                        v{file.version || 1}
-                        {file.createdAt ? ` · ${formatDate(file.createdAt)}` : ""}
+                      <div className="text-xs font-bold text-white dark:text-white light:text-slate-900 truncate">{file.originalName}</div>
+                      <div className="text-[10px] text-slate-400 dark:text-slate-400 light:text-slate-500">
+                        v{file.version || 1} {file.createdAt ? ` · ${formatDate(file.createdAt)}` : ""}
                       </div>
                     </div>
-                    <button onClick={() => openBlob(`/client/projects/${projectId}/files/${file._id}/download`, file.originalName)} className="btn btn-secondary text-xs py-1.5">
-                      Open
+                    <button
+                      onClick={() => openBlob(`/client/projects/${projectId}/files/${file._id}/download`, file.originalName)}
+                      className="btn btn-secondary text-xs py-1 px-3"
+                    >
+                      Download
                     </button>
                   </li>
                 ))}
@@ -490,16 +559,23 @@ export default function ClientPortal() {
             )}
           </div>
 
-          <div className="card">
-            <h2 className="text-sm font-semibold mb-3">Shared notes</h2>
+          <div className="card p-6 space-y-3">
+            <h2 className="text-sm font-bold text-white dark:text-white light:text-slate-900 border-b border-slate-800 dark:border-slate-800 light:border-slate-200 pb-2">
+              Shared Notes & Specs
+            </h2>
             {notes.length === 0 ? (
-              <p className="text-sm text-slate-500">No notes have been shared with you yet.</p>
+              <p className="text-xs text-slate-400 dark:text-slate-400 light:text-slate-500">No shared notes published.</p>
             ) : (
               <div className="space-y-2">
                 {notes.map((note) => (
-                  <details key={note._id} className="rounded-lg bg-slate-950 border border-slate-800 px-3 py-2 group">
-                    <summary className="cursor-pointer text-sm font-medium text-slate-200">{note.title}</summary>
-                    <div className="text-sm text-slate-400 whitespace-pre-wrap mt-2 leading-relaxed">{note.content}</div>
+                  <details
+                    key={note._id}
+                    className="rounded-xl bg-slate-950/60 dark:bg-slate-950/60 light:bg-slate-50 border border-slate-800/80 dark:border-slate-800/80 light:border-slate-200 p-3 group"
+                  >
+                    <summary className="cursor-pointer text-xs font-bold text-white dark:text-white light:text-slate-900">{note.title}</summary>
+                    <div className="text-xs text-slate-300 dark:text-slate-300 light:text-slate-700 whitespace-pre-wrap mt-2 leading-relaxed">
+                      {note.content}
+                    </div>
                   </details>
                 ))}
               </div>
@@ -507,35 +583,58 @@ export default function ClientPortal() {
           </div>
         </section>
 
-        <section className="card">
-          <h2 className="text-sm font-semibold mb-4">Conversation</h2>
+        {/* Messaging Section */}
+        <section className="card p-6 space-y-4">
+          <h2 className="text-sm font-bold text-white dark:text-white light:text-slate-900 flex items-center gap-2 border-b border-slate-800 dark:border-slate-800 light:border-slate-200 pb-3">
+            <MessageSquare className="w-4 h-4 text-indigo-400" />
+            <span>Direct Feedback & Discussion</span>
+          </h2>
           {comments.length === 0 ? (
-            <p className="text-sm text-slate-500 mb-4">No messages yet. Questions and feedback go here.</p>
+            <p className="text-xs text-slate-400 dark:text-slate-400 light:text-slate-500">No messages yet. Ask questions or leave feedback below.</p>
           ) : (
-            <div className="space-y-3 mb-4 max-h-96 overflow-y-auto pr-1">
+            <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
               {comments.map((item) => (
                 <div
                   key={item._id}
-                  className={`rounded-xl border p-3 text-sm ${item.fromClient ? "bg-indigo-500/10 border-indigo-500/20 ml-6" : "bg-slate-950 border-slate-800 mr-6"}`}
+                  className={`rounded-2xl border p-3.5 text-xs space-y-1 ${
+                    item.fromClient
+                      ? "bg-indigo-500/10 border-indigo-500/30 ml-6"
+                      : "bg-slate-950/60 dark:bg-slate-950/60 light:bg-slate-50 border-slate-800/80 mr-6"
+                  }`}
                 >
-                  <div className="flex items-center justify-between gap-2 mb-1">
-                    <span className="font-semibold text-white">{item.fromClient ? "You" : item.authorName || item.author?.name || "Freelancer"}</span>
-                    {item.createdAt && <span className="text-[11px] text-slate-500">{formatDate(item.createdAt)}</span>}
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-bold text-white dark:text-white light:text-slate-900">
+                      {item.fromClient ? "You" : item.authorName || item.author?.name || "Freelancer"}
+                    </span>
+                    {item.createdAt && <span className="text-[10px] text-slate-400">{formatDate(item.createdAt)}</span>}
                   </div>
-                  <div className="text-slate-300 whitespace-pre-wrap">{item.content}</div>
+                  <div className="text-slate-300 dark:text-slate-300 light:text-slate-700 leading-relaxed whitespace-pre-wrap">
+                    {item.content}
+                  </div>
                 </div>
               ))}
             </div>
           )}
-          <form onSubmit={submitComment} className="space-y-3">
-            <textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={3} className="input" placeholder="Write a message to your freelancer…" />
-            <button disabled={busy === "comment" || !comment.trim()} className="btn btn-primary text-sm">
-              {busy === "comment" ? "Sending…" : "Send message"}
-            </button>
+          <form onSubmit={submitComment} className="space-y-3 pt-1">
+            <textarea
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              rows={3}
+              className="input text-xs"
+              placeholder="Write a message to your freelancer…"
+            />
+            <div className="flex justify-end">
+              <button disabled={busy === "comment" || !comment.trim()} className="btn btn-primary text-xs px-5 py-2">
+                <Send className="w-3.5 h-3.5" />
+                <span>{busy === "comment" ? "Sending…" : "Send Message"}</span>
+              </button>
+            </div>
           </form>
         </section>
 
-        <footer className="text-center text-xs text-slate-600 pt-2 pb-6">Secure client portal · Powered by ClientSphere</footer>
+        <footer className="text-center text-xs text-slate-500 dark:text-slate-500 light:text-slate-400 pt-4 pb-6 font-medium">
+          Encrypted Client Portal · Powered by ClientSphere
+        </footer>
       </main>
     </div>
   );
