@@ -114,6 +114,7 @@ const toPortalComment = (c) => ({
   author: c.author ? { name: c.author.name } : null,
   fromClient: !c.author,
   createdAt: c.createdAt,
+    attachments: (c.attachments || []).map((a, index) => ({ index, originalName: a.originalName, fileType: a.fileType, size: a.size })),
 });
 
 const buildPortalPayload = async (project) => {

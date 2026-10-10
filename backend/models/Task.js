@@ -9,6 +9,7 @@ const taskSchema = new mongoose.Schema(
     priority: { type: String, enum: ["low", "medium", "high"], default: "medium" },
     status: { type: String, enum: ["todo", "in-progress", "done"], default: "todo" },
     createdBy: { type: String, enum: ["ai", "user"], default: "ai" },
+    assignee: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
   },
   { timestamps: true }
 );

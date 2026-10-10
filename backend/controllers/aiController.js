@@ -17,6 +17,7 @@ import {
   extractActionItems,
 } from "../services/groqService.js";
 import { logActivity } from "./projectController.js";
+import { createNotification } from "../services/notificationService.js";
 import { loadProjectForUser } from "../middleware/projectAccess.js";
 import { sendEmail } from "../services/emailService.js";
 import { weeklyUpdateEmail } from "../services/emailTemplates.js";
@@ -345,8 +346,79 @@ export const extractTasksFromNote = asyncHandler(async (req, res) => {
 
 // @route GET /api/projects/:projectId/tasks
 export const getTasks = asyncHandler(async (req, res) => {
-  const tasks = await Task.find({ project: req.project._id }).sort({ createdAt: -1 });
+    const tasks = await Task.find({ project: req.project._id })
+    .populate("assignee", "name email")
+    .sort({ createdAt: -1 });
   res.json({ success: true, tasks });
+});
+
+// @route POST /api/projects/:projectId/tasks   body: { title, priority?, assigneeGuess? }
+// @route GET /api/projects/:projectId/assignable-members
+// Owner and editors can be assigned tasks. Used by the task composer's @mention picker.
+export const getAssignableMembers = asyncHandler(async (req, res) => {
+  const project = await req.project.populate([
+    { path: "owner", select: "name email" },
+    { path: "members.user", select: "name email" },
+  ]);
+  const people = [];
+  const seen = new Set();
+  const add = (user) => {
+    if (!user || seen.has(String(user._id))) return;
+    seen.add(String(user._id));
+    people.push({ _id: user._id, name: user.name, email: user.email });
+  };
+  add(project.owner);
+  for (const m of project.members) {
+    if (["owner", "editor"].includes(m.role)) add(m.user);
+  }
+  res.json({ success: true, members: people });
+});
+
+// @route POST /api/projects/:projectId/tasks   body: { title, priority?, assigneeGuess?, assignee? }
+export const createTask = asyncHandler(async (req, res) => {
+  const { title, priority = "medium", assigneeGuess = "", assignee = null } = req.body;
+  if (!TASK_PRIORITIES.includes(priority)) {
+    res.status(400);
+    throw new Error(`Priority must be one of: ${TASK_PRIORITIES.join(", ")}`);
+  }
+
+  // The assignee must be someone who can actually work on this project.
+  let assigneeUser = null;
+  if (assignee) {
+    const ownerId = String(req.project.owner?._id || req.project.owner);
+    const isMember = ownerId === String(assignee) || req.project.members.some((m) => String(m.user) === String(assignee) && ["owner", "editor"].includes(m.role));
+    if (!isMember) {
+      res.status(400);
+      throw new Error("Tasks can only be assigned to owners or editors of this project");
+    }
+    assigneeUser = assignee;
+  }
+
+  const task = await Task.create({
+    project: req.project._id,
+    title,
+    priority,
+    assigneeGuess,
+    assignee: assigneeUser,
+    createdBy: "user",
+  });
+  logActivity(req.project, req.user._id, "task_created", `"${task.title}"${assigneeUser ? " (assigned)" : ""}`);
+  await req.project.save();
+
+  // Notify the assignee, unless they assigned it to themselves.
+  if (assigneeUser && String(assigneeUser) !== String(req.user._id)) {
+    await createNotification({
+      recipientKey: `user:${assigneeUser}`,
+      project: req.project._id,
+      type: "task_assigned",
+      title: `New task assigned to you`,
+      message: `${req.user.name} assigned you "${task.title}" in ${req.project.name}`,
+      metadata: { taskId: task._id, projectId: req.project._id },
+    });
+  }
+
+  const populated = await task.populate("assignee", "name email");
+  res.status(201).json({ success: true, task: populated });
 });
 
 // @route PATCH /api/tasks/:taskId   body: { status?, priority?, title? }
@@ -379,6 +451,7 @@ export const updateTask = asyncHandler(async (req, res) => {
     logActivity(project, req.user._id, "task_status_changed", `"${task.title}" -> ${TASK_STATUS_LABELS[task.status]}`);
     await project.save();
   }
+    await task.populate("assignee", "name email");
 
   res.json({ success: true, task });
 });

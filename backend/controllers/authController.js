@@ -1,6 +1,7 @@
 import asyncHandler from "express-async-handler";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
+import { getPasswordError } from "../utils/passwordPolicy.js";
 
 const generateToken = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || "7d" });
@@ -13,9 +14,10 @@ export const registerUser = asyncHandler(async (req, res) => {
     res.status(400);
     throw new Error("Please provide name, email and password");
   }
-  if (password.length < 8) {
-    res.status(400);
-    throw new Error("Password must be at least 8 characters");
+  const passwordProblem = getPasswordError(password);
+    if (passwordProblem) {
+      res.status(400);
+      throw new Error(passwordProblem);
   }
 
   const existing = await User.findOne({ email: email.toLowerCase() });

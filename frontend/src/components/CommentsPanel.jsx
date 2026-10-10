@@ -19,13 +19,31 @@ function renderWithMentions(text) {
   );
 }
 
+// Downloads an attachment through the API (needs the signed-in session), opening it in a new tab.
+const openAttachment = async (projectId, commentId, index) => {
+  const win = window.open("", "_blank");
+  try {
+    const res = await api.get(`/projects/${projectId}/comments/${commentId}/attachments/${index}`, { responseType: "blob" });
+    const url = URL.createObjectURL(res.data);
+    if (win) win.location.href = url;
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch {
+    if (win) win.close();
+    toast.error("Couldn't open this attachment");
+  }
+};
+
 export default function CommentsPanel({ projectId, project, canShare = false }) {
   const { user } = useAuth();
   const [comments, setComments] = useState([]);
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
-  const [shareOnPost, setShareOnPost] = useState(false);
+    // null = not touched yet, so the default follows the conversation (share replies to a client's message)
+  const [shareOverride, setShareOverride] = useState(null);
+  const setShareOnPost = (value) => setShareOverride(value);
+  const lastFromClient = comments.length > 0 && !comments[comments.length - 1].author;
+  const shareOnPost = shareOverride ?? lastFromClient;
   const isProjectOwner = String(project?.owner?._id || project?.owner || "") === String(user?._id || "");
 
   const [showMentions, setShowMentions] = useState(false);
@@ -107,7 +125,7 @@ export default function CommentsPanel({ projectId, project, canShare = false }) 
       const res = await api.post(`/projects/${projectId}/comments`, { content: text, ...(canShare && shareOnPost ? { isShared: true } : {}) });
       setComments((prev) => [...prev, res.data.comment]);
       setText("");
-      setShareOnPost(false);
+      setShareOverride(null);
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to post comment");
     } finally {
@@ -208,6 +226,20 @@ export default function CommentsPanel({ projectId, project, canShare = false }) 
                       </div>
                       <div className="text-xs text-slate-200 dark:text-slate-200 light:text-slate-800 leading-relaxed whitespace-pre-wrap">
                         {renderWithMentions(c.content)}
+                                            {c.attachments?.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {c.attachments.map((att, idx) => (
+                          <button
+                            key={`${c._id}-${idx}`}
+                            type="button"
+                            onClick={() => openAttachment(projectId, c._id, idx)}
+                            className="text-xs bg-slate-900 border border-slate-700 px-2.5 py-1 rounded-lg hover:bg-slate-800 text-indigo-300"
+                          >
+                            Attachment: {att.originalName}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                       </div>
                     </div>
                   </div>

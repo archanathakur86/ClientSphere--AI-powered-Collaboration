@@ -18,6 +18,7 @@ import {
   addCommentSchema,
   weeklyDraftSchema,
   searchSchema,
+  createTaskSchema,
 } from "../utils/validationSchemas.js";
 import { aiLimiter } from "../middleware/rateLimiter.js";
 import {
@@ -45,11 +46,13 @@ import {
   projectHealth,
   aiSearch,
   getTasks,
+  createTask,
+  getAssignableMembers,
   getWeeklyUpdateDraft,
   saveWeeklyUpdateDraft,
   sendWeeklyUpdateDraft,
 } from "../controllers/aiController.js";
-import { getComments, addComment, toggleCommentVisibility } from "../controllers/commentController.js";
+import { getComments, addComment, toggleCommentVisibility,downloadCommentAttachment  } from "../controllers/commentController.js";
 
 const router = express.Router();
 
@@ -97,9 +100,12 @@ router.post("/:projectId/ai/weekly-draft/send", loadProject, requireProjectRole(
 router.get("/:projectId/ai/health", aiLimiter, loadProject, projectHealth);
 router.get("/:projectId/ai/search", aiLimiter, loadProject, validate(searchSchema), aiSearch);
 router.get("/:projectId/tasks", loadProject, getTasks);
+router.post("/:projectId/tasks", loadProject, requireProjectRole(["owner", "editor"]), validate(createTaskSchema), createTask);
+router.get("/:projectId/assignable-members", loadProject, getAssignableMembers);
 
 // comments - open to any project member (owner/editor/viewer/commentor)
 router.route("/:projectId/comments").get(loadProject, getComments).post(loadProject, validate(addCommentSchema), addComment);
+router.get("/:projectId/comments/:commentId/attachments/:index", loadProject, downloadCommentAttachment);
 
 // Register visibility endpoints for notes, comments, and files
 router.patch("/:projectId/notes/:noteId/visibility", loadProject, requireProjectRole(["owner", "editor"]), validate(noteVisibilitySchema), toggleNoteVisibility);

@@ -4,9 +4,12 @@
 @tailwind components;
 @tailwind utilities;
 
-html {
+
+  html {
   scroll-behavior: smooth;
+  color-scheme: light;
 }
+
 
 body {
   @apply bg-slate-950 text-slate-100 font-sans antialiased selection:bg-indigo-200 selection:text-slate-100;

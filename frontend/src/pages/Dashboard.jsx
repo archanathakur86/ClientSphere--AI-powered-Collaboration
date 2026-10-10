@@ -9,26 +9,254 @@ import NotificationBell from "../components/NotificationBell.jsx";
 import {
   Sparkles,
   Plus,
-  CheckCircle2,
   Clock,
   AlertTriangle,
   FolderKanban,
-  ExternalLink,
-  Search,
   ArrowRight,
-  TrendingUp,
+  Search,
   X,
-  FileText,
   DollarSign,
-  Briefcase,
   Layers,
-  ChevronRight,
-  ShieldAlert,
+  CalendarClock,
+  LogOut,
 } from "lucide-react";
+
+const STYLES = `
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;1,9..144,400;1,9..144,500&display=swap');
+
+.ds-serif { font-family: 'Fraunces', Georgia, serif; font-weight: 500; letter-spacing: -0.025em; }
+
+@keyframes dsIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes dsSlide { from { transform: translateX(100%); } to { transform: translateX(0); } }
+@keyframes dsFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes dsSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+.ds-in { animation: dsIn 0.7s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.ds-card { animation: dsIn 0.7s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+.ds-slide { animation: dsSlide 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.ds-backdrop { animation: dsFade 0.3s ease both; }
+.ds-spin { animation: dsSpin 48s linear infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+`;
+
+const TINTS = ["#f6dccb", "#dcebe2", "#f7ecc9", "#efe6f0", "#e4eef7"];
+const INK_TINTS = ["#a4502d", "#3f6e5b", "#8a6418", "#6e4a78", "#3d6584"];
+
+const DAY = 86400000;
+const startOfDay = (d) => {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+};
+const daysUntil = (due) => Math.round((startOfDay(due) - startOfDay(new Date())) / DAY);
+
+// "in 3 days" / "2 days overdue" for deadline lines.
+const describeDeadline = (dueDate) => {
+  const days = daysUntil(dueDate);
+  if (days === 0) return "today";
+  if (days === 1) return "tomorrow";
+  return days > 1 ? `in ${days} days` : `${Math.abs(days)} day${days === -1 ? "" : "s"} overdue`;
+};
+
+const timeAgo = (date) => {
+  const s = (Date.now() - new Date(date).getTime()) / 1000;
+  if (s < 60) return "just now";
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  return `${Math.floor(s / 86400)}d ago`;
+};
+
+const greetingWord = () => {
+  const h = new Date().getHours();
+  if (h < 12) return "morning";
+  if (h < 18) return "afternoon";
+  return "evening";
+};
+
+function useCountUp(target, duration = 1000) {
+  const [value, setValue] = useState(0);
+  useEffect(() => {
+    let raf;
+    const start = performance.now();
+    const tick = (now) => {
+      const t = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setValue(Math.round(target * eased));
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, duration]);
+  return value;
+}
+
+function StatNumber({ value, loading }) {
+  const n = useCountUp(Number(value) || 0);
+  return <span>{loading ? "–" : n}</span>;
+}
+
+function ProgressRing({ percent }) {
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    const t = setTimeout(() => setShown(percent), 200);
+    return () => clearTimeout(t);
+  }, [percent]);
+
+  const r = 22;
+  const c = 2 * Math.PI * r;
+  return (
+    <div className="relative w-14 h-14 shrink-0">
+      <svg width="56" height="56" viewBox="0 0 56 56" className="-rotate-90">
+        <circle cx="28" cy="28" r={r} fill="none" stroke="#e8e2d9" strokeWidth="5" />
+        <circle
+          cx="28"
+          cy="28"
+          r={r}
+          fill="none"
+          stroke="#c4673f"
+          strokeWidth="5"
+          strokeLinecap="round"
+          strokeDasharray={c}
+          strokeDashoffset={c - (shown / 100) * c}
+          style={{ transition: "stroke-dashoffset 1.2s cubic-bezier(0.16,1,0.3,1)" }}
+        />
+      </svg>
+      <span className="absolute inset-0 flex items-center justify-center text-[11px] font-semibold text-[#1c1917]">
+        {percent}%
+      </span>
+    </div>
+  );
+}
+
+function ProjectCard({ p, i, featured }) {
+  const clientName = p.clientName || "";
+  const sm = p.summary || {};
+  const total = sm.milestonesTotal || 0;
+  const percent = total ? Math.round((sm.milestonesApproved / total) * 100) : 0;
+  const late = sm.nextDeadline ? new Date(sm.nextDeadline.dueDate) < new Date() : false;
+  const tint = TINTS[i % TINTS.length];
+  const ink = INK_TINTS[i % INK_TINTS.length];
+  const monogram = (clientName || p.name).charAt(0).toUpperCase();
+  const hasAlerts = sm.pendingApprovals > 0 || sm.changesRequested > 0 || sm.overdueInvoices > 0 || sm.scopeAlerts > 0;
+
+  // Spotlight: a soft glow follows the pointer across the card.
+  const handleMove = (e) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    e.currentTarget.style.setProperty("--x", `${e.clientX - r.left}px`);
+    e.currentTarget.style.setProperty("--y", `${e.clientY - r.top}px`);
+  };
+
+  return (
+    <article
+      onMouseMove={handleMove}
+      className={`ds-card group relative flex flex-col rounded-[26px] bg-[#ffffff] border border-[#e8e2d9] overflow-hidden hover:-translate-y-1 hover:shadow-[0_28px_60px_-30px_rgba(60,40,20,0.35)] transition-all duration-500 ${
+        featured ? "md:col-span-2" : ""
+      }`}
+      style={{ animationDelay: `${i * 90}ms` }}
+    >
+      <div
+        className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+        style={{
+          background: `radial-gradient(360px circle at var(--x, 50%) var(--y, 0%), ${tint}, transparent 70%)`,
+        }}
+      />
+
+      <div className="relative p-6 flex-1">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <span
+              className="w-11 h-11 rounded-full flex items-center justify-center ds-serif text-lg shrink-0"
+              style={{ background: tint, color: ink }}
+            >
+              {monogram}
+            </span>
+            <p className="text-xs text-[#6b655e] truncate">{clientName || "No client yet"}</p>
+          </div>
+          <span className="shrink-0 text-[10px] uppercase tracking-[0.2em] text-[#a39c92]">
+            {String(i + 1).padStart(2, "0")}
+          </span>
+        </div>
+
+        <h3 className="ds-serif text-3xl mt-6 leading-tight group-hover:text-[#c4673f] transition-colors duration-300">
+          {p.name}
+        </h3>
+        <p className="mt-3 text-sm text-[#6b655e] leading-relaxed line-clamp-2">
+          {p.description || "No detailed scope added yet."}
+        </p>
+
+        <div className="mt-4">
+          <HealthBadge projectId={p._id} />
+        </div>
+
+        {hasAlerts && (
+          <div className="flex flex-wrap gap-2 mt-4">
+            {sm.pendingApprovals > 0 && (
+              <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-[#f7ecc9] text-[#8a6418]">
+                {sm.pendingApprovals} awaiting client
+              </span>
+            )}
+            {sm.changesRequested > 0 && (
+              <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-[#f9e1d6] text-[#a4502d]">
+                {sm.changesRequested} changes requested
+              </span>
+            )}
+            {sm.overdueInvoices > 0 && (
+              <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-[#f9e1d6] text-[#a4502d]">
+                {sm.overdueInvoices} overdue invoice{sm.overdueInvoices > 1 ? "s" : ""}
+              </span>
+            )}
+            {sm.scopeAlerts > 0 && (
+              <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-[#e4eef7] text-[#3d6584]">
+                {sm.scopeAlerts} scope alert{sm.scopeAlerts > 1 ? "s" : ""}
+              </span>
+            )}
+          </div>
+        )}
+
+        {total > 0 && (
+          <div className="flex items-center gap-4 mt-6">
+            <ProgressRing percent={percent} />
+            <p className="text-xs text-[#6b655e] leading-snug">
+              <span className="block text-sm font-semibold text-[#1c1917]">
+                {sm.milestonesApproved} of {total}
+              </span>
+              milestones approved
+            </p>
+          </div>
+        )}
+      </div>
+
+      <div className="relative px-6 py-4 border-t border-[#e8e2d9] flex items-center justify-between gap-3">
+        <div className={`text-xs flex items-center gap-1.5 min-w-0 ${late ? "text-[#b4475a] font-semibold" : "text-[#6b655e]"}`}>
+          <Clock className="w-3.5 h-3.5 shrink-0" />
+          <span className="truncate">
+            {sm.nextDeadline
+              ? `${sm.nextDeadline.title}: ${describeDeadline(sm.nextDeadline.dueDate)}`
+              : sm.overdueMilestones > 0
+              ? `${sm.overdueMilestones} milestone${sm.overdueMilestones > 1 ? "s" : ""} overdue`
+              : total > 0
+              ? "No upcoming deadlines"
+              : "No milestones yet"}
+          </span>
+        </div>
+        <Link
+          to={`/projects/${p._id}`}
+          className="inline-flex items-center gap-1.5 text-xs font-semibold bg-[#1c1917] text-[#faf7f2] px-4 py-2 rounded-full hover:bg-[#c4673f] transition-colors shrink-0"
+        >
+          Open
+          <ArrowRight className="w-3.5 h-3.5" />
+        </Link>
+      </div>
+    </article>
+  );
+}
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+    const { user, logout } = useAuth();
   const [projects, setProjects] = useState([]);
   const [summary, setSummary] = useState({ activeProjects: 0, pendingApprovals: 0, overdueInvoices: 0, scopeAlerts: 0 });
   const [loading, setLoading] = useState(true);
@@ -138,394 +366,382 @@ export default function Dashboard() {
     );
   });
 
-  // "in 3 days" / "2 days overdue" for the deadline line on each card.
-  const describeDeadline = (dueDate) => {
-    const days = Math.ceil((new Date(dueDate).setHours(0, 0, 0, 0) - new Date().setHours(0, 0, 0, 0)) / 86400000);
-    if (days === 0) return "today";
-    if (days === 1) return "tomorrow";
-    return days > 1 ? `in ${days} days` : `${Math.abs(days)} day${days === -1 ? "" : "s"} overdue`;
-  };
+  // Upcoming deadlines, soonest first, built from each project's next milestone.
+  const upcoming = projects
+    .filter((p) => p.summary?.nextDeadline?.dueDate)
+    .map((p) => ({
+      id: p._id,
+      name: p.name,
+      title: p.summary.nextDeadline.title,
+      due: p.summary.nextDeadline.dueDate,
+    }))
+    .sort((a, b) => new Date(a.due) - new Date(b.due))
+    .slice(0, 5);
+
+  const feed = (realtime.notifications || []).slice(0, 6);
+
+  // One-line daily brief built from the same real summary numbers.
+  const briefParts = [];
+  if (summary.pendingApprovals > 0)
+    briefParts.push(`${summary.pendingApprovals} milestone${summary.pendingApprovals > 1 ? "s" : ""} waiting on client approval`);
+  if (summary.overdueInvoices > 0)
+    briefParts.push(`${summary.overdueInvoices} overdue invoice${summary.overdueInvoices > 1 ? "s" : ""}`);
+  if (summary.scopeAlerts > 0)
+    briefParts.push(`${summary.scopeAlerts} scope alert${summary.scopeAlerts > 1 ? "s" : ""} to review`);
+  const brief = briefParts.length ? `${briefParts.join(", ")}.` : "Everything is on track today.";
+
+  const firstName = (user?.name || "there").split(" ")[0];
+  const todayLabel = new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+
+  const stats = [
+    { label: "Active projects", value: summary.activeProjects ?? projects.length, dot: "#86b99f" },
+    { label: "Awaiting approval", value: summary.pendingApprovals || 0, dot: "#e0a46f" },
+    { label: "Overdue invoices", value: summary.overdueInvoices || 0, dot: "#e28595" },
+    { label: "Scope alerts", value: summary.scopeAlerts || 0, dot: "#f6dccb" },
+  ];
 
   return (
-    <div className="min-h-screen bg-slate-950 dark:bg-slate-950 light:bg-slate-50 text-slate-100 dark:text-slate-100 light:text-slate-900 font-sans selection:bg-indigo-500 selection:text-white pb-20 bg-radial-gradient">
-      {/* Top Header Bar */}
-      <div className="border-b border-slate-800/80 dark:border-slate-800/80 light:border-slate-200 bg-slate-950/60 dark:bg-slate-950/60 light:bg-white/70 backdrop-blur-xl sticky top-16 z-30 transition-colors">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-cyan-400 flex items-center justify-center text-white shadow-lg shadow-indigo-500/25 font-bold text-lg">
-              {user?.name ? user.name.charAt(0).toUpperCase() : "U"}
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-lg font-bold text-white dark:text-white light:text-slate-900 leading-snug tracking-tight">
-                  Welcome back, {user?.name || "Workspace"}
-                </h1>
-                <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/10 text-indigo-400 dark:text-indigo-400 light:text-indigo-600 border border-indigo-500/20">
-                  PRO
-                </span>
-              </div>
-              <p className="text-xs text-slate-400 dark:text-slate-400 light:text-slate-500">
-                Workspace overview & project analytics
-              </p>
-            </div>
-          </div>
+    <div className="min-h-screen bg-[#faf7f2] text-[#1c1917] font-sans pb-24 selection:bg-[#f6dccb]">
+      <style>{STYLES}</style>
 
-          <div className="flex items-center gap-3">
-            {/* Search Input */}
-            <div className="hidden md:flex items-center gap-2 px-3.5 py-2 bg-slate-900/90 dark:bg-slate-900/90 light:bg-white border border-slate-800 dark:border-slate-800 light:border-slate-200 rounded-xl text-xs text-slate-300 w-64 focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all shadow-sm">
-              <Search className="w-4 h-4 text-slate-500 flex-shrink-0" />
-              <input
-                type="text"
-                placeholder="Search projects..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="bg-transparent focus:outline-none w-full placeholder-slate-500 text-slate-100 dark:text-slate-100 light:text-slate-900 text-xs"
-              />
-            </div>
+      {/* Top bar */}
+      <header className="sticky top-0 z-40 bg-[#faf7f2]/85 backdrop-blur-xl border-b border-[#e8e2d9]">
+        <div className="max-w-7xl mx-auto px-5 sm:px-8 h-16 flex items-center justify-between gap-4">
+          <Link to="/dashboard" className="flex items-center gap-2.5">
+            <span className="w-8 h-8 rounded-lg bg-[#1c1917] flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-[#f6dccb]" />
+            </span>
+            <span className="font-semibold tracking-tight">ClientSphere</span>
+          </Link>
+          
 
-            <NotificationBell
+            <div className="flex items-center gap-3">
+              <NotificationBell
               notifications={realtime.notifications}
               unreadCount={realtime.unreadCount}
               onMarkRead={realtime.markNotificationRead}
               onMarkAllRead={realtime.markAllRead}
             />
+            <div className="hidden sm:flex items-center gap-2.5 pl-1 pr-3 py-1 rounded-full bg-[#ffffff] border border-[#e8e2d9]">
+              <span className="w-7 h-7 rounded-full bg-[#f6dccb] text-[#a4502d] ds-serif text-sm flex items-center justify-center">
+                {(user?.name || "U").charAt(0).toUpperCase()}
+              </span>
+              <span className="text-xs font-semibold max-w-[8rem] truncate">{user?.name || "Account"}</span>
+            </div>
 
+            
             <button
-              onClick={() => setShowForm(!showForm)}
-              className="btn btn-primary text-xs px-4 py-2.5 rounded-xl shadow-lg shadow-indigo-600/20"
+              onClick={() => {
+                logout();
+                navigate("/login");
+              }}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#6b655e] hover:text-[#b4475a] px-3 py-2 rounded-full hover:bg-[#f9e1d6] transition-colors"
+              title="Sign out"
             >
-              <Plus className="w-4 h-4" />
-              <span>New Project</span>
+              <LogOut className="w-4 h-4" />
+              <span className="hidden md:inline">Sign out</span>
             </button>
+    
           </div>
         </div>
-      </div>
+      </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 space-y-8">
-        {/* Summary Metrics Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {[
-            {
-              label: "Active Projects",
-              value: summary.activeProjects ?? projects.length,
-              note: projects.length ? "Across your workspace" : "Create your first project",
-              tone: "text-white dark:text-white light:text-slate-900",
-              noteTone: "text-slate-400 light:text-slate-500",
-              icon: FolderKanban,
-              iconBg: "bg-indigo-500/10 border-indigo-500/20 text-indigo-400 dark:text-indigo-400 light:text-indigo-600",
-            },
-            {
-              label: "Awaiting Approval",
-              value: summary.pendingApprovals || 0,
-              note: summary.pendingApprovals ? "Milestones under review" : "No pending approvals",
-              tone: summary.pendingApprovals ? "text-amber-400 dark:text-amber-300 light:text-amber-600" : "text-white dark:text-white light:text-slate-900",
-              noteTone: summary.pendingApprovals ? "text-amber-400 dark:text-amber-400 light:text-amber-600" : "text-slate-400 light:text-slate-500",
-              icon: Clock,
-              iconBg: "bg-amber-500/10 border-amber-500/20 text-amber-400 dark:text-amber-400 light:text-amber-600",
-            },
-            {
-              label: "Overdue Invoices",
-              value: summary.overdueInvoices || 0,
-              note: summary.overdueInvoices ? "Follow up required" : "All invoices paid",
-              tone: summary.overdueInvoices ? "text-rose-400 dark:text-rose-300 light:text-rose-600" : "text-white dark:text-white light:text-slate-900",
-              noteTone: summary.overdueInvoices ? "text-rose-400 dark:text-rose-400 light:text-rose-600" : "text-slate-400 light:text-slate-500",
-              icon: DollarSign,
-              iconBg: "bg-rose-500/10 border-rose-500/20 text-rose-400 dark:text-rose-400 light:text-rose-600",
-            },
-            {
-              label: "Scope Alerts",
-              value: summary.scopeAlerts || 0,
-              note: summary.scopeAlerts ? "Recent scope requests" : "No scope creep flagged",
-              tone: summary.scopeAlerts ? "text-cyan-400 dark:text-cyan-300 light:text-cyan-600" : "text-white dark:text-white light:text-slate-900",
-              noteTone: summary.scopeAlerts ? "text-cyan-400 dark:text-cyan-400 light:text-cyan-600" : "text-slate-400 light:text-slate-500",
-              icon: ShieldAlert,
-              iconBg: "bg-cyan-500/10 border-cyan-500/20 text-cyan-400 dark:text-cyan-400 light:text-cyan-600",
-            },
-          ].map((card) => (
-            <div
-              key={card.label}
-              className="card bg-slate-900/80 dark:bg-slate-900/80 light:bg-white border-slate-800/80 dark:border-slate-800/80 light:border-slate-200/80 p-5 rounded-2xl flex items-center justify-between gap-4 hover:border-slate-700/80 dark:hover:border-slate-700/80 light:hover:border-slate-300 transition-all duration-200 shadow-sm"
+      <main className="max-w-7xl mx-auto px-5 sm:px-8 pt-12 space-y-14">
+        {/* Hero: greeting + animated pulse */}
+        <section className="grid lg:grid-cols-12 gap-8 items-stretch">
+          <div className="lg:col-span-7 flex flex-col justify-center ds-in">
+            <p className="text-xs uppercase tracking-[0.22em] text-[#6b655e]">{todayLabel}</p>
+            <h1 className="ds-serif text-5xl md:text-7xl mt-4 leading-[1.0]">
+              Good {greetingWord()},{" "}
+              <em className="italic text-[#c4673f]">{firstName}.</em>
+            </h1>
+            <p className="mt-6 text-lg text-[#6b655e] max-w-xl leading-relaxed">
+              {loading ? "Loading your workspace…" : brief}
+            </p>
+          </div>
+
+          <div className="lg:col-span-5 ds-card relative rounded-[32px] bg-[#1c1917] text-[#faf7f2] p-8 overflow-hidden">
+            <svg
+              className="ds-spin pointer-events-none absolute -right-24 -top-24 w-80 h-80 opacity-[0.12]"
+              viewBox="0 0 200 200"
+              aria-hidden="true"
             >
-              <div className="min-w-0 space-y-1">
-                <div className="text-[11px] font-semibold text-slate-400 dark:text-slate-400 light:text-slate-500 uppercase tracking-wider">
-                  {card.label}
-                </div>
-                <div className={`text-3xl font-extrabold tracking-tight ${card.tone}`}>
-                  {loading ? "–" : card.value}
-                </div>
-                <div className={`text-[11px] font-medium ${card.noteTone}`}>
-                  {card.note}
-                </div>
-              </div>
-              <div className={`w-12 h-12 flex-shrink-0 rounded-2xl border flex items-center justify-center ${card.iconBg} shadow-inner`}>
-                <card.icon className="w-6 h-6" />
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Create Project Inline Form Modal */}
-        {showForm && (
-          <form
-            onSubmit={handleCreate}
-            className="bg-slate-900/90 dark:bg-slate-900/90 light:bg-white border border-slate-800 dark:border-slate-800 light:border-slate-200 p-6 rounded-2xl space-y-5 animate-fadeIn shadow-xl"
-          >
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800 dark:border-slate-800 light:border-slate-200">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
-                  <Briefcase className="w-4 h-4" />
-                </div>
-                <h3 className="text-base font-bold text-white dark:text-white light:text-slate-900">
-                  Create New Workspace Project
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowForm(false)}
-                className="text-slate-400 hover:text-white dark:hover:text-white light:hover:text-slate-900 p-1 rounded-lg hover:bg-slate-800 dark:hover:bg-slate-800 light:hover:bg-slate-100"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 dark:text-slate-300 light:text-slate-700 uppercase tracking-wider mb-2">
-                  Project Title *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. E-Commerce Redesign"
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className="input"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 dark:text-slate-300 light:text-slate-700 uppercase tracking-wider mb-2">
-                  Client Name (Optional)
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Acme Corp"
-                  value={form.clientName}
-                  onChange={(e) => setForm({ ...form, clientName: e.target.value })}
-                  className="input"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 dark:text-slate-300 light:text-slate-700 uppercase tracking-wider mb-2">
-                Client Email (Optional)
-              </label>
-              <input
-                type="email"
-                placeholder="client@acme.com. You can invite them to the portal later"
-                value={form.clientEmail}
-                onChange={(e) => setForm({ ...form, clientEmail: e.target.value })}
-                className="input"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 dark:text-slate-300 light:text-slate-700 uppercase tracking-wider mb-2">
-                Project Scope / Description
-              </label>
-              <textarea
-                rows={3}
-                placeholder="Briefly describe key deliverables, timeline and milestones..."
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-                className="input resize-none"
-              />
-            </div>
-
-            <div className="flex justify-end gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowForm(false)}
-                className="btn btn-secondary text-xs"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={creating}
-                className="btn btn-primary text-xs px-6"
-              >
-                {creating ? "Creating..." : "Save Project"}
-              </button>
-            </div>
-          </form>
-        )}
-
-        {/* Project Workspaces Header & Grid */}
-        <div>
-          <div className="flex items-center justify-between mb-5">
-            <div>
-              <h2 className="text-lg font-bold text-white dark:text-white light:text-slate-900 tracking-tight">
-                Project Workspaces
-              </h2>
-              <p className="text-xs text-slate-400 dark:text-slate-400 light:text-slate-500">
-                Manage active client projects and track progress
-              </p>
-            </div>
-            <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-slate-800/80 dark:bg-slate-800/80 light:bg-slate-200 text-slate-300 dark:text-slate-300 light:text-slate-700">
-              {filteredProjects.length} active workspace{filteredProjects.length === 1 ? "" : "s"}
-            </span>
-          </div>
-
-          {loading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" aria-busy="true" aria-label="Loading projects">
-              {[0, 1, 2].map((i) => (
-                <div key={i} className="card p-6 space-y-4 animate-pulse">
-                  <div className="h-4 w-1/3 rounded bg-slate-800/60 dark:bg-slate-800/60 light:bg-slate-200" />
-                  <div className="h-6 w-2/3 rounded bg-slate-800/60 dark:bg-slate-800/60 light:bg-slate-200" />
-                  <div className="h-3 w-full rounded bg-slate-800/60 dark:bg-slate-800/60 light:bg-slate-200" />
-                  <div className="h-3 w-4/5 rounded bg-slate-800/60 dark:bg-slate-800/60 light:bg-slate-200" />
+              <circle cx="100" cy="100" r="95" fill="none" stroke="#f6dccb" strokeWidth="0.6" strokeDasharray="2 6" />
+              <circle cx="100" cy="100" r="70" fill="none" stroke="#f6dccb" strokeWidth="0.6" />
+            </svg>
+            <div
+              className="absolute -bottom-24 -left-16 w-64 h-64 rounded-full pointer-events-none"
+              style={{ background: "radial-gradient(circle, #c4673f44 0%, transparent 70%)" }}
+            />
+            <p className="relative text-xs uppercase tracking-[0.22em] text-[#d9d2c7]">Workspace pulse</p>
+            <div className="relative mt-6 grid grid-cols-2 gap-x-6 gap-y-8">
+              {stats.map((s) => (
+                <div key={s.label}>
+                  <div className="flex items-center gap-2 text-xs text-[#d9d2c7]">
+                    <span className="w-2 h-2 rounded-full" style={{ background: s.dot }} />
+                    {s.label}
+                  </div>
+                  <div className="ds-serif text-6xl mt-2 tabular-nums">
+                    <StatNumber value={s.value} loading={loading} />
+                  </div>
                 </div>
               ))}
             </div>
-          ) : filteredProjects.length === 0 ? (
-            <div className="card p-12 text-center space-y-4 max-w-lg mx-auto">
-              <div className="w-16 h-16 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
-                <FolderKanban className="w-8 h-8" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-white dark:text-white light:text-slate-900">
-                  No projects found
-                </h3>
-                <p className="text-xs text-slate-400 dark:text-slate-400 light:text-slate-500 mt-1">
-                  Start by creating your first client project or add a sample template.
-                </p>
-              </div>
-              <div className="flex items-center justify-center gap-3 pt-2">
-                <button
-                  onClick={() => setShowForm(true)}
-                  className="btn btn-primary text-xs"
-                >
-                  Create Custom Project
-                </button>
-                <button
-                  onClick={handleSeedSampleProject}
-                  disabled={creating}
-                  className="btn btn-secondary text-xs"
-                >
-                  Add Sample Template
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredProjects.map((p) => {
-                const clientName = p.clientName || "";
-                const sm = p.summary || {};
-                const total = sm.milestonesTotal || 0;
-                const percent = total ? Math.round((sm.milestonesApproved / total) * 100) : 0;
-                const late = sm.nextDeadline ? new Date(sm.nextDeadline.dueDate) < new Date() : false;
+          </div>
+        </section>
 
-                return (
-                  <div
-                    key={p._id}
-                    className="card p-6 flex flex-col justify-between space-y-5 transition-all duration-200 group hover:shadow-xl hover:shadow-indigo-500/5 hover:-translate-y-0.5"
-                  >
-                    <div>
-                      <div className="flex items-start justify-between gap-3 mb-3">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div className="w-7 h-7 flex-shrink-0 rounded-lg bg-indigo-500/20 text-indigo-300 font-bold text-xs flex items-center justify-center border border-indigo-500/30">
-                            {(clientName || p.name).charAt(0).toUpperCase()}
-                          </div>
-                          <span className="text-xs font-semibold text-slate-400 dark:text-slate-400 light:text-slate-600 truncate">
-                            {clientName || "No client yet"}
-                          </span>
-                        </div>
-
-                        <HealthBadge projectId={p._id} />
-                      </div>
-
-                      <h3 className="text-base font-bold text-white dark:text-white light:text-slate-900 group-hover:text-indigo-400 transition-colors leading-snug">
-                        {p.name}
-                      </h3>
-
-                      <p className="text-xs text-slate-400 dark:text-slate-400 light:text-slate-500 mt-2 line-clamp-2 leading-relaxed">
-                        {p.description || "No detailed scope added."}
-                      </p>
-
-                      {total > 0 && (
-                        <div className="mt-4 space-y-1.5">
-                          <div className="flex justify-between text-[11px] font-medium text-slate-400 dark:text-slate-400 light:text-slate-600">
-                            <span>
-                              {sm.milestonesApproved} of {total} milestones approved
-                            </span>
-                            <span className="font-bold text-slate-300 dark:text-slate-300 light:text-slate-700">{percent}%</span>
-                          </div>
-                          <div className="h-1.5 rounded-full bg-slate-800 dark:bg-slate-800 light:bg-slate-200 overflow-hidden">
-                            <div
-                              className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-cyan-400 transition-all duration-500"
-                              style={{ width: `${percent}%` }}
-                            />
-                          </div>
-                        </div>
-                      )}
-
-                      {(sm.pendingApprovals > 0 || sm.changesRequested > 0 || sm.overdueInvoices > 0 || sm.scopeAlerts > 0) && (
-                        <div className="flex flex-wrap gap-1.5 mt-3.5">
-                          {sm.pendingApprovals > 0 && (
-                            <span className="badge bg-amber-500/10 text-amber-300 dark:text-amber-300 light:text-amber-700 border-amber-500/30">
-                              {sm.pendingApprovals} awaiting client
-                            </span>
-                          )}
-                          {sm.changesRequested > 0 && (
-                            <span className="badge bg-orange-500/10 text-orange-300 dark:text-orange-300 light:text-orange-700 border-orange-500/30">
-                              {sm.changesRequested} changes requested
-                            </span>
-                          )}
-                          {sm.overdueInvoices > 0 && (
-                            <span className="badge bg-rose-500/10 text-rose-300 dark:text-rose-300 light:text-rose-700 border-rose-500/30">
-                              {sm.overdueInvoices} overdue invoice{sm.overdueInvoices > 1 ? "s" : ""}
-                            </span>
-                          )}
-                          {sm.scopeAlerts > 0 && (
-                            <span className="badge bg-indigo-500/10 text-indigo-300 dark:text-indigo-300 light:text-indigo-700 border-indigo-500/30">
-                              {sm.scopeAlerts} scope alert{sm.scopeAlerts > 1 ? "s" : ""}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="pt-4 border-t border-slate-800/80 dark:border-slate-800/80 light:border-slate-200/80 flex items-center justify-between gap-3">
-                      <div className={`text-[11px] font-medium flex items-center gap-1.5 min-w-0 ${late ? "text-rose-400" : "text-slate-400 dark:text-slate-400 light:text-slate-500"}`}>
-                        <Clock className="w-3.5 h-3.5 flex-shrink-0" />
-                        <span className="truncate">
-                          {sm.nextDeadline
-                            ? `${sm.nextDeadline.title}: ${describeDeadline(sm.nextDeadline.dueDate)}`
-                            : sm.overdueMilestones > 0
-                            ? `${sm.overdueMilestones} milestone${sm.overdueMilestones > 1 ? "s" : ""} overdue`
-                            : total > 0
-                            ? "No upcoming deadlines"
-                            : "No milestones yet"}
-                        </span>
-                      </div>
-
-                      <Link
-                        to={`/projects/${p._id}`}
-                        className="btn btn-primary text-xs px-3 py-1.5 rounded-lg flex-shrink-0"
-                      >
-                        <span>Open</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </Link>
-                    </div>
+        {/* New project drawer */}
+        {showForm && (
+          <div className="fixed inset-0 z-50">
+            <div className="ds-backdrop absolute inset-0 bg-[#1c1917]/30" onClick={() => setShowForm(false)} />
+            <aside className="ds-slide absolute right-0 top-0 h-full w-full max-w-md bg-[#faf7f2] shadow-2xl overflow-y-auto">
+              <form onSubmit={handleCreate} className="p-8 space-y-6">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.22em] text-[#c4673f]">New workspace</p>
+                    <h3 className="ds-serif text-4xl mt-3 leading-tight">Start a project</h3>
                   </div>
-                );
-              })}
+                  <button
+                    type="button"
+                    onClick={() => setShowForm(false)}
+                    className="w-9 h-9 rounded-full border border-[#e8e2d9] flex items-center justify-center hover:border-[#1c1917] transition-colors"
+                    aria-label="Close"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="space-y-5">
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-[#6b655e] mb-2">
+                      Project title *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. E-Commerce Redesign"
+                      value={form.name}
+                      onChange={(e) => setForm({ ...form, name: e.target.value })}
+                      className="w-full px-4 py-3 bg-[#ffffff] border border-[#e8e2d9] rounded-2xl text-sm placeholder-[#a39c92] focus:outline-none focus:border-[#c4673f] focus:ring-2 focus:ring-[#f6dccb]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-[#6b655e] mb-2">
+                      Client name
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Acme Corp"
+                      value={form.clientName}
+                      onChange={(e) => setForm({ ...form, clientName: e.target.value })}
+                      className="w-full px-4 py-3 bg-[#ffffff] border border-[#e8e2d9] rounded-2xl text-sm placeholder-[#a39c92] focus:outline-none focus:border-[#c4673f] focus:ring-2 focus:ring-[#f6dccb]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-[#6b655e] mb-2">
+                      Client email
+                    </label>
+                    <input
+                      type="email"
+                      placeholder="client@acme.com (you can invite them later)"
+                      value={form.clientEmail}
+                      onChange={(e) => setForm({ ...form, clientEmail: e.target.value })}
+                      className="w-full px-4 py-3 bg-[#ffffff] border border-[#e8e2d9] rounded-2xl text-sm placeholder-[#a39c92] focus:outline-none focus:border-[#c4673f] focus:ring-2 focus:ring-[#f6dccb]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-[#6b655e] mb-2">
+                      Scope and description
+                    </label>
+                    <textarea
+                      rows={4}
+                      placeholder="Briefly describe the key deliverables and milestones..."
+                      value={form.description}
+                      onChange={(e) => setForm({ ...form, description: e.target.value })}
+                      className="w-full px-4 py-3 bg-[#ffffff] border border-[#e8e2d9] rounded-2xl text-sm placeholder-[#a39c92] focus:outline-none focus:border-[#c4673f] focus:ring-2 focus:ring-[#f6dccb] resize-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowForm(false)}
+                    className="flex-1 py-3 rounded-full border border-[#e8e2d9] text-sm font-semibold hover:border-[#1c1917] transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={creating}
+                    className="flex-1 py-3 rounded-full bg-[#1c1917] text-[#faf7f2] text-sm font-semibold hover:bg-[#c4673f] transition-colors disabled:opacity-50"
+                  >
+                    {creating ? "Creating..." : "Save project"}
+                  </button>
+                </div>
+              </form>
+            </aside>
+          </div>
+        )}
+
+        {/* Body: portfolio + sidebar */}
+        <section className="grid lg:grid-cols-12 gap-10 items-start">
+          {/* Portfolio */}
+          <div className="lg:col-span-8">
+            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-5 mb-8">
+              <div>
+                <p className="text-xs uppercase tracking-[0.22em] text-[#6b655e]">Portfolio</p>
+                <h2 className="ds-serif text-4xl mt-2">Your projects</h2>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 px-4 py-2.5 bg-[#ffffff] border border-[#e8e2d9] rounded-full w-full md:w-64 focus-within:border-[#c4673f] transition-colors">
+                  <Search className="w-4 h-4 text-[#6b655e]" />
+                  <input
+                    type="text"
+                    placeholder="Search by name or client"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="bg-transparent focus:outline-none w-full text-sm placeholder-[#a39c92]"
+                  />
+                </div>
+                  <button
+                  onClick={() => setShowForm(true)}
+                  className="group inline-flex items-center gap-2 text-sm font-semibold bg-[#f6dccb] text-[#1c1917] pl-3 pr-4 py-2.5 rounded-full hover:bg-[#c4673f] hover:text-[#faf7f2] transition-colors duration-300 whitespace-nowrap"
+                >
+                  <Plus className="w-4 h-4 transition-transform duration-300 group-hover:rotate-90" />
+                  New project
+                </button>
+                <span className="hidden sm:inline-flex text-xs font-semibold bg-[#f1ece4] px-3 py-2 rounded-full whitespace-nowrap">
+                  {filteredProjects.length} active
+                </span>
+              </div>
             </div>
-          )}
-        </div>
-      </div>
+
+            {loading ? (
+              <div className="grid md:grid-cols-2 gap-6" aria-busy="true" aria-label="Loading projects">
+                {[0, 1].map((i) => (
+                  <div key={i} className="rounded-[26px] bg-[#f1ece4] h-80 animate-pulse" />
+                ))}
+              </div>
+            ) : filteredProjects.length === 0 ? (
+              <div className="rounded-[28px] border-2 border-dashed border-[#d9d1c4] bg-[#ffffff] p-12 text-center">
+                <div className="w-16 h-16 mx-auto rounded-2xl bg-[#f6dccb] flex items-center justify-center">
+                  <FolderKanban className="w-7 h-7 text-[#a4502d]" />
+                </div>
+                <h3 className="ds-serif text-3xl mt-6">No projects yet</h3>
+                <p className="mt-3 text-sm text-[#6b655e] max-w-md mx-auto leading-relaxed">
+                  Start with your first client project, or explore a sample with milestones and prices already set up.
+                </p>
+                <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
+                  <button
+                    onClick={() => setShowForm(true)}
+                    className="px-6 py-3 rounded-full bg-[#1c1917] text-[#faf7f2] text-sm font-semibold hover:bg-[#c4673f] transition-colors"
+                  >
+                    Create custom project
+                  </button>
+                  <button
+                    onClick={handleSeedSampleProject}
+                    disabled={creating}
+                    className="px-6 py-3 rounded-full border border-[#e8e2d9] text-sm font-semibold hover:border-[#1c1917] transition-colors disabled:opacity-50"
+                  >
+                    Add sample template
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="grid md:grid-cols-2 gap-6">
+                {filteredProjects.map((p, i) => (
+                  <ProjectCard key={p._id} p={p} i={i} featured={i === 0 && filteredProjects.length > 2} />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Sidebar */}
+          <aside className="lg:col-span-4 space-y-6 lg:sticky lg:top-28">
+            {/* Up next timeline */}
+            <div className="ds-card rounded-[26px] bg-[#ffffff] border border-[#e8e2d9] p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CalendarClock className="w-4 h-4 text-[#c4673f]" />
+                  <p className="ds-serif text-2xl">Up next</p>
+                </div>
+                <span className="text-xs text-[#6b655e]">{upcoming.length} scheduled</span>
+              </div>
+
+              {upcoming.length === 0 ? (
+                <p className="mt-5 text-sm text-[#6b655e]">No deadlines on the calendar yet.</p>
+              ) : (
+                <ol className="mt-6">
+                  {upcoming.map((u, idx) => {
+                    const d = daysUntil(u.due);
+                    const pill =
+                      d < 0
+                        ? "bg-[#f9e1d6] text-[#a4502d]"
+                        : d <= 1
+                        ? "bg-[#f7ecc9] text-[#8a6418]"
+                        : "bg-[#dcebe2] text-[#3f6e5b]";
+                    return (
+                      <li
+                        key={u.id + u.due}
+                        className="ds-card relative pl-8 pb-6 last:pb-0"
+                        style={{ animationDelay: `${idx * 110}ms` }}
+                      >
+                        {idx < upcoming.length - 1 && (
+                          <span className="absolute left-[5px] top-4 bottom-0 w-px bg-[#e8e2d9]" />
+                        )}
+                        <span className="absolute left-0 top-1 w-3 h-3 rounded-full border-2 border-[#c4673f] bg-[#ffffff]" />
+                        <p className="text-sm font-semibold">{u.title}</p>
+                        <p className="text-xs text-[#6b655e] mt-0.5 truncate">{u.name}</p>
+                        <span className={`inline-block mt-2 text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${pill}`}>
+                          {describeDeadline(u.due)}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ol>
+              )}
+            </div>
+
+            {/* Live activity */}
+            <div className="ds-card rounded-[26px] bg-[#ffffff] border border-[#e8e2d9] p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <span className="relative flex w-2.5 h-2.5">
+                    <span className="absolute inline-flex h-full w-full rounded-full bg-[#86b99f] opacity-75 animate-ping" />
+                    <span className="relative inline-flex w-2.5 h-2.5 rounded-full bg-[#3f6e5b]" />
+                  </span>
+                  <p className="ds-serif text-2xl">Live activity</p>
+                </div>
+                <Layers className="w-4 h-4 text-[#a39c92]" />
+              </div>
+
+              {feed.length === 0 ? (
+                <p className="mt-5 text-sm text-[#6b655e]">Client activity will show up here in real time.</p>
+              ) : (
+                <ul className="mt-5 space-y-2">
+                  {feed.map((item, idx) => (
+                    <li key={item._id} className="ds-card" style={{ animationDelay: `${idx * 70}ms` }}>
+                      <button
+                        onClick={() => realtime.markNotificationRead?.(item._id)}
+                        className={`w-full text-left rounded-2xl px-4 py-3 border transition-colors hover:bg-[#faf7f2] ${
+                          item.readAt ? "border-transparent opacity-60" : "border-[#f6dccb] bg-[#fdf6f1]"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <span className="text-sm font-semibold">{item.title}</span>
+                          <span className="text-[10px] text-[#a39c92] whitespace-nowrap mt-0.5">{timeAgo(item.createdAt)}</span>
+                        </div>
+                        <p className="text-xs text-[#6b655e] mt-1 leading-relaxed line-clamp-2">{item.message}</p>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </aside>
+        </section>
+      </main>
     </div>
   );
 }

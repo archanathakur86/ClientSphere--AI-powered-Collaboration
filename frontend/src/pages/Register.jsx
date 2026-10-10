@@ -3,6 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import api from "../api/axios.js";
 import { useAuth } from "../context/AuthContext.jsx";
+import PasswordStrength from "../components/PasswordStrength.jsx";
+import { getPasswordError } from "../utils/passwordPolicy.js";
 import { Sparkles, User, Mail, Lock, Eye, EyeOff, ArrowRight, CheckCircle2, ShieldCheck, Zap } from "lucide-react";
 
 export default function Register() {
@@ -15,10 +17,11 @@ export default function Register() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (form.password.length < 8) {
-      setErrorMsg("Password must be at least 8 characters");
-      return toast.error("Password must be at least 8 characters");
-    }
+      const pwProblem = getPasswordError(form.password);
+      if (pwProblem) {
+        setErrorMsg(pwProblem);
+        return toast.error(pwProblem);
+      }
 
     setLoading(true);
     setErrorMsg("");
@@ -166,6 +169,8 @@ export default function Register() {
                   type={showPassword ? "text" : "password"}
                   required
                   minLength={8}
+                  maxLength={128}
+                  autoComplete="new-password"
                   value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
                   placeholder="••••••••"
@@ -179,12 +184,7 @@ export default function Register() {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-              <div className="mt-1.5 flex items-center justify-between text-[11px] text-slate-500">
-                <span>Must be at least 8 characters</span>
-                <span className={form.password.length >= 8 ? "text-emerald-400 font-medium" : ""}>
-                  {form.password.length}/8
-                </span>
-              </div>
+              <PasswordStrength value={form.password} />
             </div>
 
             <button

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { getPasswordError } from "./passwordPolicy.js";
 
 const objectIdSchema = z.string().regex(/^[a-f\d]{24}$/i, "Invalid id");
 
@@ -10,9 +11,10 @@ export const registerSchema = z.object({
       .trim()
       .toLowerCase()
       .email("Invalid email address"),
-    password: z
-      .string({ required_error: "Password is required" })
-      .min(8, "Password must be at least 8 characters"),
+      password: z.string({ required_error: "Password is required" }).superRefine((pw, ctx) => {
+        const problem = getPasswordError(pw);
+        if (problem) ctx.addIssue({ code: z.ZodIssueCode.custom, message: problem });
+      }),
   }),
 });
 
@@ -171,11 +173,19 @@ export const updateTaskSchema = z.object({
     title: z.string().trim().min(1).optional(),
   }),
 });
+export const createTaskSchema = z.object({
+  body: z.object({
+    title: z.string({ required_error: "Task title is required" }).trim().min(1, "Task title is required").max(200, "Task title is too long"),
+    priority: z.enum(["low", "medium", "high"]).optional(),
+    assigneeGuess: z.string().trim().max(100, "Assignee is too long").optional(),
+    assignee: z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid assignee").nullable().optional(),
+  }),
+});
 
 export const addCommentSchema = z.object({
   body: z.object({
-    content: z.string({ required_error: "Comment content is required" }).trim().min(1, "Comment content cannot be empty"),
-    // Staff only: publish this comment to the client portal straight away.
+        content: z.string().trim().max(2000, "Message is too long").optional().default(""),
+  // Staff only: publish this comment to the client portal straight away.
     isShared: z.boolean().optional(),
   }),
 });

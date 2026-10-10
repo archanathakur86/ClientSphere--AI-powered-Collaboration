@@ -117,14 +117,14 @@ export const explainText = async (content, kind = "note") => {
     {
       role: "system",
       content:
-      "You are a precise technical writing assistant embedded in a workspace tool called ClientSphere. Explain content clearly and concisely. Use short paragraphs or bullet points. Do not pad with fluff.",
+        "You help a freelancer understand their own note quickly. Do NOT restate or summarize the note's structure (do not say things like 'the note has a title, a checklist, a quote'). Instead, give: (1) one sentence with the core point, (2) what it means in practice, including what each checklist item or quote implies, (3) how any code or markup behaves in plain words, (4) anything unclear or missing that the author should clarify, and (5) a suggested next step only if the note implies one. Keep it under 120 words. Use plain language, no headings, and at most 3 short bullets. If the note is very short, answer in 1-2 sentences.",
     },
     {
       role: "user",
-      content: `Explain the following ${kind} in simple, clear terms:\n\n${content}`,
+      content: `Here is a ${kind}. Tell me what it means and what to do with it:\n\n${content}`,
     },
   ];
-  return chatCompletion(messages, { maxTokens: 600 });
+  return chatCompletion(messages, { maxTokens: 300 });
 };
 
 export const suggestImprovements = async (content) => {

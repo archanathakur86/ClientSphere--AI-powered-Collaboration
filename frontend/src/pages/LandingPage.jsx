@@ -1,525 +1,962 @@
-import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import React, { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   Sparkles,
   ArrowRight,
   CheckCircle2,
-  Zap,
-  ShieldCheck,
-  Bot,
-  Mic,
-  Clock,
-  TrendingUp,
-  FileText,
-  AlertTriangle,
-  ChevronDown,
   Lock,
+  Bot,
+  AlertTriangle,
   Layers,
-  Users,
-  BarChart3,
-  ExternalLink,
+  FileText,
   MessageSquare,
   DollarSign,
-  Play
+  TrendingUp,
+  Mic,
+  Clock,
+  Users,
+  Play,
+  Menu,
+  X,
+  Plus,
+  Minus,
+  ArrowUpRight,
 } from "lucide-react";
 
-export default function LandingPage() {
-  const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("overview");
-  const [openFaq, setOpenFaq] = useState(null);
+const STYLES = `
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;1,9..144,400;1,9..144,500&display=swap');
 
-  const toggleFaq = (index) => {
-    setOpenFaq(openFaq === index ? null : index);
-  };
+.ls-serif { font-family: 'Fraunces', Georgia, serif; font-weight: 500; letter-spacing: -0.025em; }
 
-  const faqs = [
-    {
-      question: "Do my clients need to create an account to view updates?",
-      answer: "No! ClientSphere provides secure, zero-login public portal links for your clients. They can view project status, approve milestones, and leave comments effortlessly without sign-up friction."
-    },
-    {
-      question: "How does the AI Scope Creep detector work?",
-      answer: "ClientSphere analyzes incoming client requests and note edits against your original project brief and milestone scope. If new unbilled feature requests are detected, it alerts you with estimated extra hours and invoice adjustments."
-    },
-    {
-      question: "Can I use the Voice Assistant on mobile?",
-      answer: "Yes, ClientSphere's AI Voice Assistant works seamlessly on any browser supporting web speech recognition. You can record quick audio notes or ask for project summaries while away from your desk."
-    },
-    {
-      question: "Is my client data and project code private?",
-      answer: "Absolutely. We use enterprise-grade encryption for all stored files, database records, and AI prompts. Your data is never used to train public AI models."
-    },
-    {
-      question: "Is there a free trial?",
-      answer: "Yes! You can start with our fully-featured Free tier today with no credit card required."
+@keyframes lsFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
+@keyframes lsMarquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@keyframes lsBar { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes lsIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes lsRise { from { opacity: 0; transform: translateY(48px) rotate(var(--r, 0deg)); } to { opacity: 1; transform: translateY(0) rotate(var(--r, 0deg)); } }
+@keyframes lsGrow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+.ls-fade { animation: lsIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.ls-rise { animation: lsRise 1s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.ls-reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1); }
+.ls-reveal.is-visible { opacity: 1; transform: none; }
+.ls-line { transform-origin: left; animation: lsGrow 1.6s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  .ls-reveal { opacity: 1; transform: none; }
+}
+`;
+
+const NAV = [
+  { label: "Problem", href: "#problem" },
+  { label: "How it works", href: "#how-it-works" },
+  { label: "Features", href: "#features" },
+  { label: "Product", href: "#product" },
+  { label: "FAQ", href: "#faq" },
+];
+
+const TICKER = [
+  "Milestones",
+  "Client portals",
+  "AI weekly reports",
+  "Scope tracking",
+  "File versions",
+  "Invoices",
+  "Internal comments",
+  "Voice assistant",
+];
+
+const SWAPS = [
+  { before: "Writing the same Friday status email again", after: "A weekly report drafted for you" },
+  { before: "Scope quietly growing in direct messages", after: "Drift flagged the moment it happens" },
+  { before: "Approvals buried in forty-message threads", after: "One portal where every approval lives" },
+  { before: "Clients asking 'where are we?'", after: "Clients who already know" },
+];
+
+const STEPS = [
+  {
+    n: "01",
+    title: "Set up the project",
+    text: "Add milestones, files and the agreed scope. It takes minutes, not an afternoon.",
+  },
+  {
+    n: "02",
+    title: "Share one private link",
+    text: "Clients open a zero-login portal straight from any email. Nothing to sign up for.",
+  },
+  {
+    n: "03",
+    title: "Let the updates write themselves",
+    text: "AI drafts your weekly report and flags scope drift. You review it, then send.",
+  },
+];
+
+const FEATURES = [
+  {
+    icon: Bot,
+    title: "AI weekly reports",
+    text: "Turns your milestones and activity into a clear, client-ready update every week. Nothing goes out until you approve it.",
+    points: ["Drafted from real project activity", "Edit tone and length before sending", "Scheduled for your review day"],
+    tint: "#f7ecc9",
+    ink: "#8a6418",
+  },
+  {
+    icon: Lock,
+    title: "Zero-login client portal",
+    text: "Clients open a private link and see progress, files and approvals instantly. No accounts, no password resets.",
+    points: ["One unique link per project", "Clients see only what you share", "Works on any device"],
+    tint: "#dcebe2",
+    ink: "#3f6e5b",
+  },
+  {
+    icon: AlertTriangle,
+    title: "Scope creep detection",
+    text: "Flags requests that drift beyond the agreed scope before they quietly eat your margin.",
+    points: ["Estimates the extra effort", "Turns requests into change orders", "Keeps a record of every decision"],
+    tint: "#f9e1d6",
+    ink: "#a4502d",
+  },
+  {
+    icon: Layers,
+    title: "Milestones and approvals",
+    text: "Track each deliverable from pending to approved, with a timeline both sides can trust.",
+    points: ["Clear status for every deliverable", "Approvals logged with timestamps", "Progress rolls up to project health"],
+    tint: "#efe6f0",
+    ink: "#6e4a78",
+  },
+  {
+    icon: FileText,
+    title: "File versions",
+    text: "Upload revisions, keep every version, and share only the one the client should see.",
+    points: ["Full version history", "Mark a version as current", "Share a single file, not the folder"],
+    tint: "#f4efe7",
+    ink: "#5b5246",
+  },
+  {
+    icon: MessageSquare,
+    title: "Internal or shared comments",
+    text: "Talk freely with your team in private threads, then share the right notes with clients.",
+    points: ["Internal threads never leak", "Promote a comment to shared", "Mention teammates with @"],
+    tint: "#e4eef7",
+    ink: "#3d6584",
+  },
+  {
+    icon: DollarSign,
+    title: "Invoices tied to milestones",
+    text: "Bill against the work that was approved, so payment conversations stay short.",
+    points: ["Invoice per approved milestone", "Clear line items for clients", "Track what is still outstanding"],
+    tint: "#f7ecc9",
+    ink: "#8a6418",
+  },
+  {
+    icon: TrendingUp,
+    title: "Live project health",
+    text: "A health score shows which project needs your attention today: healthy, slowing or inactive.",
+    points: ["Score updates as work moves", "Flags stalled projects early", "Sorted on your dashboard"],
+    tint: "#dcebe2",
+    ink: "#3f6e5b",
+  },
+  {
+    icon: Mic,
+    title: "Hands-free assistant",
+    text: "Ask ClientSphere to add a note, check a deadline or summarise a project while you work.",
+    points: ["Voice or text commands", "Summaries of any project", "Adds notes and reminders"],
+    tint: "#f9e1d6",
+    ink: "#a4502d",
+  },
+];
+
+const AUDIENCE = [
+  { name: "Freelance designers", desc: "Keep revisions, approvals and feedback out of your inbox, so you can focus on the work." },
+  { name: "Developers and studios", desc: "Track milestones against scope and show clients real progress without extra meetings." },
+  { name: "Marketing agencies", desc: "Run several client accounts side by side and never miss a deadline or approval." },
+  { name: "Consultants", desc: "Send clear weekly updates that prove value and make scope changes easy to agree on." },
+  { name: "Writers and editors", desc: "Share drafts, versions and feedback in one place, with comments your clients can follow." },
+  { name: "Video producers", desc: "Keep cut versions, approvals and invoices linked, so every stage is easy to trace." },
+];
+
+const FAQS = [
+  {
+    q: "Do my clients need to create an account?",
+    a: "No. Each project gets a private portal link. Clients open it from your email and see only what you choose to share.",
+  },
+  {
+    q: "Can I control what clients see?",
+    a: "Yes. Files and comments can be internal or shared, so your team discussions stay with your team.",
+  },
+  {
+    q: "Does the AI send updates on its own?",
+    a: "No. ClientSphere drafts the weekly report, and you decide when to edit and publish it.",
+  },
+  {
+    q: "How quickly can I get started?",
+    a: "Sign up, create your first project and invite a client in about a minute. No credit card is required.",
+  },
+];
+
+const PRODUCT_ITEMS = {
+  team: {
+    milestones: [
+      { name: "Discovery", value: 100, status: "Approved", color: "#3f6e5b" },
+      { name: "Design", value: 80, status: "In review", color: "#c4673f" },
+      { name: "Development", value: 45, status: "In progress", color: "#e0a46f" },
+    ],
+    comments: [
+      { tag: "Internal", text: "Budget is tight on dev, push back on the extra pages." },
+      { tag: "Shared", text: "Homepage wireframes are ready for your review." },
+    ],
+  },
+  client: {
+    milestones: [
+      { name: "Discovery", value: 100, status: "Approved", color: "#3f6e5b" },
+      { name: "Design", value: 80, status: "Awaiting your approval", color: "#c4673f" },
+      { name: "Development", value: 45, status: "In progress", color: "#e0a46f" },
+    ],
+    comments: [{ tag: "Shared", text: "Homepage wireframes are ready for your review." }],
+  },
+};
+
+function useReveal() {
+  const ref = useRef(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof IntersectionObserver === "undefined") {
+      setVisible(true);
+      return;
     }
-  ];
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          io.disconnect();
+        }
+      },
+      { threshold: 0.15 }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  return [ref, visible];
+}
+
+function Reveal({ children, delay = 0, className = "" }) {
+  const [ref, visible] = useReveal();
+  return (
+    <div
+      ref={ref}
+      className={`ls-reveal ${visible ? "is-visible" : ""} ${className}`}
+      style={{ transitionDelay: `${delay}ms` }}
+    >
+      {children}
+    </div>
+  );
+}
+
+/* ---------- Hero ---------- */
+
+function HeroDesk() {
+  return (
+    <div className="relative h-[460px] md:h-[500px] mt-16">
+      {/* Left: client portal card */}
+      <div
+        className="ls-rise hidden md:block absolute left-0 top-16 w-[230px] bg-[#ffffff] rounded-3xl border border-[#e8e2d9] shadow-xl p-5"
+        style={{ "--r": "-5deg", animationDelay: "0.25s" }}
+      >
+        <p className="text-[11px] uppercase tracking-wider text-[#6b655e]">Client portal</p>
+        <p className="ls-serif text-lg mt-2">Acme Corporation</p>
+        <div className="mt-4 space-y-2.5">
+          {["Homepage wireframes", "Colour system", "Final assets"].map((t, i) => (
+            <div key={t} className="flex items-center gap-2 text-xs">
+              <span className={`w-4 h-4 rounded-full flex items-center justify-center ${i === 0 ? "bg-[#3f6e5b]" : "bg-[#f1ece4]"}`}>
+                {i === 0 && <CheckCircle2 className="w-3 h-3 text-[#faf7f2]" />}
+              </span>
+              <span className={i === 0 ? "text-[#6b655e] line-through" : "text-[#1c1917]"}>{t}</span>
+            </div>
+          ))}
+        </div>
+        <div className="mt-5 text-[11px] font-semibold text-[#c4673f]">Review 2 files →</div>
+      </div>
+
+      {/* Centre: main dashboard */}
+      <div
+        className="ls-rise absolute left-1/2 -translate-x-1/2 top-0 w-full md:w-[480px] bg-[#ffffff] rounded-3xl border border-[#e8e2d9] shadow-[0_40px_90px_-30px_rgba(60,40,20,0.35)] overflow-hidden z-10"
+        style={{ "--r": "0deg", animationDelay: "0.05s" }}
+      >
+        <div className="flex items-center gap-1.5 px-4 py-3 border-b border-[#e8e2d9] bg-[#faf7f2]">
+          <span className="w-2.5 h-2.5 rounded-full bg-[#f2b8a0]" />
+          <span className="w-2.5 h-2.5 rounded-full bg-[#f7e3a1]" />
+          <span className="w-2.5 h-2.5 rounded-full bg-[#b9dccb]" />
+          <span className="ml-3 text-[11px] text-[#6b655e] font-mono truncate">clientsphere.app/acme-brand</span>
+        </div>
+        <div className="p-6">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs text-[#6b655e]">Acme Corporation</p>
+              <p className="ls-serif text-2xl mt-1">Brand Redesign</p>
+            </div>
+            <span className="text-xs font-semibold text-[#3f6e5b] bg-[#dcebe2] px-2.5 py-1 rounded-full whitespace-nowrap">
+              Healthy · 94%
+            </span>
+          </div>
+          <div className="mt-6 space-y-4">
+            {[
+              { n: "Discovery", s: "Approved", v: 100, c: "#3f6e5b", d: "0.4s" },
+              { n: "Design", s: "In review", v: 80, c: "#c4673f", d: "0.6s" },
+              { n: "Development", s: "In progress", v: 45, c: "#e0a46f", d: "0.8s" },
+            ].map((m) => (
+              <div key={m.n}>
+                <div className="flex justify-between text-xs mb-1.5">
+                  <span className="font-medium">{m.n}</span>
+                  <span className="text-[#6b655e]">{m.s}</span>
+                </div>
+                <div className="h-2 rounded-full bg-[#f1ece4] overflow-hidden">
+                  <div
+                    className="h-full rounded-full origin-left"
+                    style={{
+                      width: `${m.v}%`,
+                      background: m.c,
+                      animation: "lsBar 1.4s cubic-bezier(0.16, 1, 0.3, 1) both",
+                      animationDelay: m.d,
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Right: report card */}
+      <div
+        className="ls-rise hidden md:block absolute right-0 top-28 w-[220px] bg-[#1c1917] text-[#faf7f2] rounded-3xl shadow-xl p-5"
+        style={{ "--r": "4deg", animationDelay: "0.45s" }}
+      >
+        <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-[#f6dccb]">
+          <Bot className="w-3.5 h-3.5" /> AI weekly report
+        </div>
+        <p className="mt-3 text-[13px] leading-relaxed text-[#e9e2d6]">
+          Design is in review and development is 45% done. Two files need your feedback this week.
+        </p>
+        <div className="mt-4 text-[11px] font-semibold text-[#f6dccb]">Ready to send →</div>
+      </div>
+
+      <FloatChip className="absolute -left-2 md:left-10 bottom-4 md:bottom-0" delay="0s" icon={CheckCircle2} tone="sage" title="Milestone 2 approved" sub="by Acme · just now" />
+      <FloatChip className="absolute right-0 md:right-4 -bottom-2 md:bottom-6" delay="1.4s" icon={AlertTriangle} tone="clay" title="Scope drift flagged" sub="+12 hrs, outside scope" />
+    </div>
+  );
+}
+
+const TONES = {
+  sage: "bg-[#dcebe2] text-[#3f6e5b]",
+  clay: "bg-[#f9e1d6] text-[#a4502d]",
+  butter: "bg-[#f7ecc9] text-[#8a6418]",
+};
+
+function FloatChip({ className, delay, icon: Icon, tone, title, sub }) {
+  return (
+    <div
+      className={`${className} z-20 flex items-center gap-3 bg-[#ffffff] rounded-2xl border border-[#e8e2d9] shadow-lg px-4 py-3`}
+      style={{ animation: "lsFloat 6s ease-in-out infinite", animationDelay: delay }}
+    >
+      <span className={`w-9 h-9 rounded-xl flex items-center justify-center ${TONES[tone]}`}>
+        <Icon className="w-4 h-4" />
+      </span>
+      <div>
+        <p className="text-sm font-semibold leading-tight">{title}</p>
+        <p className="text-xs text-[#6b655e] mt-0.5">{sub}</p>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- How it works: timeline with mini mockups ---------- */
+
+function StepVisual({ index }) {
+  if (index === 0) {
+    return (
+      <div className="space-y-2">
+        {["Discovery", "Design", "Development"].map((m) => (
+          <div key={m} className="flex items-center justify-between bg-[#faf7f2] border border-[#e8e2d9] rounded-xl px-3 py-2 text-xs">
+            <span className="font-medium">{m}</span>
+            <span className="w-2 h-2 rounded-full bg-[#3f6e5b]" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+  if (index === 1) {
+    return (
+      <div className="bg-[#faf7f2] border border-[#e8e2d9] rounded-xl p-3">
+        <p className="text-[11px] text-[#6b655e] font-mono truncate">clientsphere.app/p/acme-brand</p>
+        <div className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold bg-[#1c1917] text-[#faf7f2] px-3 py-1.5 rounded-full">
+          Copy client link <ArrowUpRight className="w-3 h-3" />
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="bg-[#faf7f2] border border-[#e8e2d9] rounded-xl p-4 space-y-2">
+      <div className="h-2 w-full rounded bg-[#e8e2d9]" />
+      <div className="h-2 w-11/12 rounded bg-[#e8e2d9]" />
+      <div className="h-2 w-8/12 rounded bg-[#e8e2d9]" />
+      <div className="pt-2 flex justify-end">
+        <span className="text-[11px] font-semibold text-[#3f6e5b] bg-[#dcebe2] px-2.5 py-1 rounded-full">Approve & send</span>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Features: master-detail ---------- */
+
+function FeatureExplorer() {
+  const [active, setActive] = useState(0);
+  const feature = FEATURES[active];
+  const Icon = feature.icon;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-indigo-500 selection:text-white">
-      {/* Sticky Glass Navbar */}
-      <header className="sticky top-0 z-50 backdrop-blur-xl bg-slate-950/80 border-b border-slate-800/80 transition-all">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate("/")}>
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-cyan-400 flex items-center justify-center shadow-lg shadow-indigo-500/20 ring-1 ring-white/20">
-              <Sparkles className="w-5 h-5 text-white animate-pulse" />
+    <div className="grid lg:grid-cols-12 gap-10 items-start">
+      <div className="lg:col-span-5 lg:sticky lg:top-24">
+        <div className="flex flex-col divide-y divide-[#e8e2d9] border-y border-[#e8e2d9]">
+          {FEATURES.map((f, i) => {
+            const FIcon = f.icon;
+            const on = i === active;
+            return (
+              <button
+                key={f.title}
+                onClick={() => setActive(i)}
+                onMouseEnter={() => setActive(i)}
+                className={`group flex items-center gap-4 py-4 text-left transition-all duration-300 ${on ? "pl-4" : "pl-0"}`}
+              >
+                <span className={`w-1 self-stretch rounded-full transition-colors ${on ? "bg-[#c4673f]" : "bg-transparent"}`} />
+                <FIcon className={`w-4 h-4 shrink-0 transition-colors ${on ? "text-[#c4673f]" : "text-[#6b655e]"}`} />
+                <span className={`text-[15px] transition-colors ${on ? "text-[#1c1917] font-semibold" : "text-[#6b655e] group-hover:text-[#1c1917]"}`}>
+                  {f.title}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="lg:col-span-7">
+        <div key={active} className="ls-fade rounded-[28px] p-8 md:p-12 min-h-[440px] border border-[#e8e2d9]" style={{ background: feature.tint }}>
+          <span className="w-12 h-12 rounded-2xl bg-[#ffffff] flex items-center justify-center shadow-sm">
+            <Icon className="w-5 h-5" style={{ color: feature.ink }} />
+          </span>
+          <h3 className="ls-serif text-4xl md:text-5xl mt-8 leading-[1.05]">{feature.title}</h3>
+          <p className="mt-5 text-[16px] leading-relaxed text-[#3a342e] max-w-xl">{feature.text}</p>
+          <ul className="mt-8 space-y-3">
+            {feature.points.map((p) => (
+              <li key={p} className="flex items-center gap-3 text-sm text-[#1c1917]">
+                <CheckCircle2 className="w-4 h-4 shrink-0" style={{ color: feature.ink }} />
+                {p}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Product: tilt frame + team/client toggle ---------- */
+
+function TiltFrame({ children }) {
+  const [tilt, setTilt] = useState({ x: 0, y: 0 });
+
+  const onMove = (e) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    const px = (e.clientX - r.left) / r.width - 0.5;
+    const py = (e.clientY - r.top) / r.height - 0.5;
+    setTilt({ x: py * -6, y: px * 8 });
+  };
+
+  return (
+    <div className="[perspective:1400px]">
+      <div
+        onMouseMove={onMove}
+        onMouseLeave={() => setTilt({ x: 0, y: 0 })}
+        className="rounded-[28px] bg-[#ffffff] border border-[#e8e2d9] shadow-[0_50px_100px_-40px_rgba(60,40,20,0.35)] overflow-hidden transition-transform duration-300 ease-out"
+        style={{ transform: `rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)` }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function ProductShowcase() {
+  const [mode, setMode] = useState("team");
+  const data = PRODUCT_ITEMS[mode];
+
+  return (
+    <div>
+      <div className="flex justify-center mb-10">
+        <div className="inline-flex p-1.5 rounded-full bg-[#ffffff] border border-[#e8e2d9]">
+          {[
+            { id: "team", label: "Your team's view", icon: Layers },
+            { id: "client", label: "Client's view", icon: Users },
+          ].map((m) => (
+            <button
+              key={m.id}
+              onClick={() => setMode(m.id)}
+              className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium transition-all duration-300 ${
+                mode === m.id ? "bg-[#1c1917] text-[#faf7f2]" : "text-[#6b655e] hover:text-[#1c1917]"
+              }`}
+            >
+              <m.icon className="w-4 h-4" />
+              {m.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <TiltFrame>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#e8e2d9] bg-[#faf7f2]">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#f2b8a0]" />
+            <span className="w-2.5 h-2.5 rounded-full bg-[#f7e3a1]" />
+            <span className="w-2.5 h-2.5 rounded-full bg-[#b9dccb]" />
+          </div>
+          <span className="text-[11px] font-mono text-[#6b655e]">
+            {mode === "team" ? "clientsphere.app/projects/acme-brand" : "portal.clientsphere.app/acme-brand"}
+          </span>
+          <span className="text-[11px] font-semibold text-[#3f6e5b]">{mode === "team" ? "Internal" : "Shared"}</span>
+        </div>
+
+        <div key={mode} className="ls-fade grid md:grid-cols-5">
+          <div className="md:col-span-3 p-8 md:p-10 space-y-6">
+            <div>
+              <p className="text-xs text-[#6b655e]">Acme Corporation</p>
+              <p className="ls-serif text-3xl mt-1">Brand Redesign</p>
             </div>
-            <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent">
-              ClientSphere
-            </span>
+            {data.milestones.map((m) => (
+              <div key={m.name}>
+                <div className="flex justify-between text-sm mb-2">
+                  <span className="font-medium">{m.name}</span>
+                  <span className="text-[#6b655e]">{m.status}</span>
+                </div>
+                <div className="h-2.5 rounded-full bg-[#f1ece4] overflow-hidden">
+                  <div
+                    className="h-full rounded-full origin-left"
+                    style={{ width: `${m.value}%`, background: m.color, animation: "lsBar 1s cubic-bezier(0.16,1,0.3,1) both" }}
+                  />
+                </div>
+              </div>
+            ))}
           </div>
 
-          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-300">
-            <a href="#features" className="hover:text-indigo-400 transition-colors">Features</a>
-            <a href="#how-it-works" className="hover:text-indigo-400 transition-colors">How It Works</a>
-            <a href="#problem" className="hover:text-indigo-400 transition-colors">Why ClientSphere</a>
-            <a href="#faq" className="hover:text-indigo-400 transition-colors">FAQ</a>
+          <div className="md:col-span-2 border-t md:border-t-0 md:border-l border-[#e8e2d9] bg-[#faf7f2] p-8 space-y-4">
+            <p className="text-xs uppercase tracking-wider text-[#6b655e]">Comments</p>
+            {data.comments.map((c) => (
+              <div
+                key={c.text}
+                className={`rounded-2xl p-4 text-sm leading-relaxed border ${
+                  c.tag === "Internal" ? "bg-[#f4efe7] border-[#e8e2d9]" : "bg-[#ffffff] border-[#dcebe2]"
+                }`}
+              >
+                <span
+                  className={`inline-block text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full mb-2 ${
+                    c.tag === "Internal" ? "bg-[#e8e2d9] text-[#5b5246]" : "bg-[#dcebe2] text-[#3f6e5b]"
+                  }`}
+                >
+                  {c.tag}
+                </span>
+                <p>{c.text}</p>
+              </div>
+            ))}
+            {mode === "client" && (
+              <p className="text-xs text-[#6b655e] pt-2">Internal notes are hidden from the client's portal.</p>
+            )}
+          </div>
+        </div>
+      </TiltFrame>
+    </div>
+  );
+}
+
+/* ---------- Audience: typographic list ---------- */
+
+function AudienceList() {
+  const [hovered, setHovered] = useState(0);
+  return (
+    <div className="grid lg:grid-cols-12 gap-10">
+      <div className="lg:col-span-7 divide-y divide-[#e8e2d9] border-y border-[#e8e2d9]">
+        {AUDIENCE.map((a, i) => (
+          <button
+            key={a.name}
+            onMouseEnter={() => setHovered(i)}
+            onFocus={() => setHovered(i)}
+            className="w-full flex items-center justify-between gap-4 py-6 text-left group"
+          >
+            <span
+              className={`ls-serif text-3xl md:text-4xl transition-all duration-300 ${
+                hovered === i ? "text-[#c4673f] italic translate-x-3" : "text-[#1c1917]"
+              }`}
+            >
+              {a.name}
+            </span>
+            <ArrowRight
+              className={`w-6 h-6 shrink-0 transition-all duration-300 ${
+                hovered === i ? "opacity-100 text-[#c4673f] translate-x-0" : "opacity-0 -translate-x-3"
+              }`}
+            />
+          </button>
+        ))}
+      </div>
+      <div className="lg:col-span-5 lg:sticky lg:top-24 self-start">
+        <div className="rounded-[28px] bg-[#f4efe7] p-10 min-h-[260px] flex flex-col justify-end">
+          <p className="text-xs uppercase tracking-wider text-[#6b655e]">Built for</p>
+          <p key={hovered} className="ls-fade ls-serif text-2xl leading-snug mt-4">
+            {AUDIENCE[hovered].desc}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Page ---------- */
+
+export default function LandingPage() {
+  const [openFaq, setOpenFaq] = useState(0);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 12);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const closeMenu = () => setMenuOpen(false);
+
+  return (
+    <div className="min-h-screen bg-[#faf7f2] text-[#1c1917] font-sans overflow-x-hidden selection:bg-[#f6dccb]">
+      <style>{STYLES}</style>
+
+      {/* Header */}
+      <header
+        className={`sticky top-0 z-50 transition-all duration-300 border-b ${
+          scrolled ? "bg-[#faf7f2]/90 backdrop-blur-xl border-[#e8e2d9]" : "bg-transparent border-transparent"
+        }`}
+      >
+        <div className="max-w-7xl mx-auto px-5 sm:px-8 h-16 flex items-center justify-between">
+          <Link to="/" className="flex items-center gap-2.5">
+            <span className="w-8 h-8 rounded-lg bg-[#1c1917] flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-[#f6dccb]" />
+            </span>
+            <span className="font-semibold tracking-tight">ClientSphere</span>
+          </Link>
+
+          <nav className="hidden md:flex items-center gap-8 text-sm text-[#6b655e]">
+            {NAV.map((n) => (
+              <a key={n.href} href={n.href} className="hover:text-[#1c1917] transition-colors">
+                {n.label}
+              </a>
+            ))}
           </nav>
 
-          <div className="flex items-center gap-4">
-            <Link
-              to="/login"
-              className="text-sm font-medium text-slate-300 hover:text-white px-4 py-2 rounded-lg hover:bg-slate-900 transition-colors"
-            >
-              Sign In
+          <div className="hidden md:flex items-center gap-3">
+            <Link to="/login" className="text-sm font-medium px-4 py-2 hover:text-[#c4673f] transition-colors">
+              Sign in
             </Link>
             <Link
               to="/register"
-              className="group relative inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 via-indigo-600 to-cyan-500 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+              className="text-sm font-semibold bg-[#1c1917] text-[#faf7f2] px-4 py-2.5 rounded-full hover:bg-[#c4673f] transition-colors"
             >
-              <span>Get Started Free</span>
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              Get started free
             </Link>
           </div>
+
+          <button className="md:hidden p-2 -mr-2" onClick={() => setMenuOpen((o) => !o)} aria-label="Toggle menu">
+            {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
         </div>
+
+        {menuOpen && (
+          <div className="md:hidden border-t border-[#e8e2d9] bg-[#faf7f2] px-5 py-5 flex flex-col gap-4 text-sm">
+            {NAV.map((n) => (
+              <a key={n.href} href={n.href} onClick={closeMenu} className="text-[#1c1917]">
+                {n.label}
+              </a>
+            ))}
+            <Link to="/login" onClick={closeMenu} className="text-[#1c1917]">
+              Sign in
+            </Link>
+            <Link
+              to="/register"
+              onClick={closeMenu}
+              className="text-center font-semibold bg-[#1c1917] text-[#faf7f2] px-4 py-3 rounded-full"
+            >
+              Get started free
+            </Link>
+          </div>
+        )}
       </header>
 
-      {/* Hero Section */}
-      <section className="relative pt-16 pb-24 md:pt-24 md:pb-32 overflow-hidden">
-        {/* Glowing Ambient Backgrounds */}
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-indigo-600/15 rounded-full blur-[140px] pointer-events-none" />
-        <div className="absolute top-1/3 right-1/4 w-[400px] h-[400px] bg-cyan-500/10 rounded-full blur-[120px] pointer-events-none" />
-
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-semibold tracking-wide uppercase mb-8 shadow-inner">
-            <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-            <span>AI-Powered Workspace for Freelancers & Agencies</span>
-          </div>
-
-          <h1 className="text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-white max-w-4xl mx-auto leading-[1.15]">
-            Never chase clients for updates{" "}
-            <span className="bg-gradient-to-r from-indigo-400 via-cyan-400 to-teal-300 bg-clip-text text-transparent">
-              ever again.
+      {/* 1. Hero */}
+      <section className="relative pt-12 md:pt-20 pb-12 overflow-hidden">
+        <div
+          className="absolute inset-x-0 top-0 h-[700px] pointer-events-none"
+          style={{ background: "radial-gradient(55% 50% at 50% 0%, #f6dccb80 0%, transparent 70%)" }}
+        />
+        <div className="relative max-w-7xl mx-auto px-5 sm:px-8 text-center">
+          <Reveal>
+            <span className="inline-flex items-center gap-2 text-xs font-medium text-[#3f6e5b] bg-[#dcebe2] px-3 py-1.5 rounded-full">
+              <Sparkles className="w-3.5 h-3.5" />
+              AI-powered workspace for freelancers and agencies
             </span>
-          </h1>
-
-          <p className="mt-6 text-lg sm:text-xl text-slate-300 max-w-2xl mx-auto font-normal leading-relaxed">
-            ClientSphere unifies milestones, feedback, automated AI weekly status reports, scope creep detection, and zero-login client portals in one sleek platform.
-          </p>
-
-          <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link
-              to="/register"
-              className="w-full sm:w-auto px-8 py-4 rounded-xl bg-gradient-to-r from-indigo-500 via-indigo-600 to-cyan-500 text-base font-bold text-white shadow-xl shadow-indigo-500/30 hover:shadow-indigo-500/50 hover:scale-[1.02] transition-all flex items-center justify-center gap-3"
-            >
-              <span>Start Free Workspace</span>
-              <ArrowRight className="w-5 h-5" />
-            </Link>
-
-            <Link
-              to="/login"
-              className="w-full sm:w-auto px-8 py-4 rounded-xl bg-slate-900 border border-slate-800 text-base font-semibold text-slate-200 hover:bg-slate-800 hover:text-white transition-all flex items-center justify-center gap-2.5"
-            >
-              <Play className="w-4 h-4 fill-current text-indigo-400" />
-              <span>Explore Interactive Demo</span>
-            </Link>
-          </div>
-
-          {/* Social Proof Badges */}
-          <div className="mt-12 flex items-center justify-center gap-8 text-xs font-medium text-slate-400">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-              <span>No credit card required</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-              <span>Zero-login client portals</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-              <span>Instant setup in 60s</span>
-            </div>
-          </div>
-
-          {/* Product Mockup */}
-          <div className="mt-16 max-w-5xl mx-auto relative group">
-            <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-cyan-500 rounded-2xl blur-lg opacity-30 group-hover:opacity-50 transition duration-500" />
-            
-            <div className="relative rounded-2xl bg-slate-900 border border-slate-800/90 shadow-2xl overflow-hidden">
-              {/* Window Header */}
-              <div className="bg-slate-950 px-4 py-3 border-b border-slate-800 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-rose-500/80" />
-                  <div className="w-3 h-3 rounded-full bg-amber-500/80" />
-                  <div className="w-3 h-3 rounded-full bg-emerald-500/80" />
-                </div>
-                <div className="px-3 py-1 rounded-md bg-slate-900 border border-slate-800 text-xs font-mono text-slate-400 flex items-center gap-2">
-                  <Lock className="w-3 h-3 text-indigo-400" />
-                  <span>clientsphere.app/projects/nexus-brand-redesign</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                    Live Demo Mode
-                  </span>
-                </div>
-              </div>
-
-              {/* Mockup Navigation Tabs */}
-              <div className="bg-slate-900/90 border-b border-slate-800 px-6 py-2.5 flex items-center gap-3 text-xs font-medium text-slate-400">
-                <button
-                  onClick={() => setActiveTab("overview")}
-                  className={`px-3 py-1.5 rounded-lg transition-all ${
-                    activeTab === "overview"
-                      ? "bg-indigo-600 text-white font-semibold"
-                      : "hover:bg-slate-800 hover:text-slate-200"
-                  }`}
-                >
-                  Overview & Health
-                </button>
-                <button
-                  onClick={() => setActiveTab("ai_report")}
-                  className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
-                    activeTab === "ai_report"
-                      ? "bg-indigo-600 text-white font-semibold"
-                      : "hover:bg-slate-800 hover:text-slate-200"
-                  }`}
-                >
-                  <Bot className="w-3.5 h-3.5 text-cyan-300" />
-                  <span>AI Weekly Report</span>
-                </button>
-                <button
-                  onClick={() => setActiveTab("scope")}
-                  className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
-                    activeTab === "scope"
-                      ? "bg-indigo-600 text-white font-semibold"
-                      : "hover:bg-slate-800 hover:text-slate-200"
-                  }`}
-                >
-                  <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Scope Creep Alert</span>
-                </button>
-              </div>
-
-              {/* Mockup Body Content */}
-              <div className="p-6 md:p-8 text-left bg-gradient-to-b from-slate-900 to-slate-950 min-h-[380px]">
-                {activeTab === "overview" && (
-                  <div className="space-y-6 animate-fadeIn">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
-                      <div>
-                        <div className="text-xs font-medium text-slate-400">Client: Acme Corporation</div>
-                        <h3 className="text-xl font-bold text-white">Nexus Brand & Web Platform Redesign</h3>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                          Health: 94% (On Track)
-                        </span>
-                        <span className="px-3 py-1 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                          Deadline: Oct 28
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50">
-                        <div className="text-xs font-medium text-slate-400 flex items-center justify-between">
-                          <span>Milestone Status</span>
-                          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                        </div>
-                        <div className="mt-2 text-2xl font-bold text-white">4 / 5 Done</div>
-                        <div className="mt-2 w-full bg-slate-700 h-1.5 rounded-full overflow-hidden">
-                          <div className="bg-emerald-500 h-full w-4/5" />
-                        </div>
-                      </div>
-
-                      <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50">
-                        <div className="text-xs font-medium text-slate-400 flex items-center justify-between">
-                          <span>Pending Client Approval</span>
-                          <Clock className="w-4 h-4 text-amber-400" />
-                        </div>
-                        <div className="mt-2 text-2xl font-bold text-amber-300">Phase 3 Wireframes</div>
-                        <div className="mt-1 text-xs text-slate-400">Client notified 2 hours ago</div>
-                      </div>
-
-                      <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50">
-                        <div className="text-xs font-medium text-slate-400 flex items-center justify-between">
-                          <span>AI Executive Summary</span>
-                          <Bot className="w-4 h-4 text-cyan-400" />
-                        </div>
-                        <div className="mt-2 text-xs text-slate-300 leading-relaxed">
-                          "Project velocity is 15% ahead of schedule. All high-priority frontend components delivered."
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {activeTab === "ai_report" && (
-                  <div className="space-y-4 animate-fadeIn">
-                    <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                      <div className="flex items-center gap-2">
-                        <Bot className="w-5 h-5 text-cyan-400" />
-                        <h4 className="text-base font-bold text-white">AI Weekly Client Summary Report</h4>
-                      </div>
-                      <span className="text-xs text-slate-400">Generated Oct 6, 2026</span>
-                    </div>
-
-                    <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 space-y-3">
-                      <div className="text-xs font-semibold text-indigo-400 uppercase tracking-wider">Highlights This Week</div>
-                      <ul className="text-xs text-slate-300 space-y-2 list-disc list-inside">
-                        <li>Completed responsive navigation & dark mode component system.</li>
-                        <li>Integrated secure Auth endpoints & Zod request validation.</li>
-                        <li>Configured Cloudinary image delivery pipeline for design deliverables.</li>
-                      </ul>
-
-                      <div className="text-xs font-semibold text-emerald-400 uppercase tracking-wider pt-2">Next Week Focus</div>
-                      <p className="text-xs text-slate-300">Final QA testing, client feedback integration, and production deployment.</p>
-                    </div>
-                  </div>
-                )}
-
-                {activeTab === "scope" && (
-                  <div className="space-y-4 animate-fadeIn">
-                    <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-3">
-                      <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
-                      <div>
-                        <h4 className="text-sm font-bold text-amber-300">Potential Scope Creep Detected</h4>
-                        <p className="mt-1 text-xs text-slate-300 leading-relaxed">
-                          Client requested 3 additional custom animation requests in note "Feedback_v2". This was not included in the original project agreement (+6 estimated hours).
-                        </p>
-                        <div className="mt-3 flex items-center gap-3">
-                          <button className="px-3 py-1.5 rounded-lg bg-amber-500 text-slate-950 font-bold text-xs hover:bg-amber-400 transition-colors">
-                            Generate Change Order Invoice ($450)
-                          </button>
-                          <button className="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 font-semibold text-xs hover:bg-slate-700">
-                            Dismiss Alert
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Problem Section */}
-      <section id="problem" className="py-20 bg-slate-900/60 border-y border-slate-800/80">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-3xl mx-auto">
-            <h2 className="text-xs font-bold text-indigo-400 uppercase tracking-wider">The Problem</h2>
-            <p className="mt-2 text-3xl sm:text-4xl font-extrabold text-white">
-              Freelancing shouldn't feel like endless admin work.
+          </Reveal>
+          <Reveal delay={80}>
+            <h1 className="ls-serif mt-8 mx-auto max-w-5xl text-[46px] sm:text-7xl lg:text-[88px] leading-[0.98]">
+              Never chase clients for updates <em className="italic text-[#c4673f]">ever again.</em>
+            </h1>
+          </Reveal>
+          <Reveal delay={160}>
+            <p className="mt-7 mx-auto max-w-2xl text-lg leading-relaxed text-[#6b655e]">
+              Milestones, approvals, scope tracking and weekly client reports in one calm workspace. Your clients
+              stay informed, and you stop writing the same status email every Friday.
             </p>
-            <p className="mt-4 text-slate-400 text-base">
-              Managing clients across fragmented emails, Slack channels, Google Docs, and spreadsheets costs you hours every week.
-            </p>
-          </div>
-
-          <div className="mt-14 grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="bg-slate-950/80 p-8 rounded-2xl border border-slate-800 hover:border-slate-700 transition-all">
-              <div className="w-12 h-12 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mb-6">
-                <MessageSquare className="w-6 h-6 text-rose-400" />
-              </div>
-              <h3 className="text-xl font-bold text-white">Scattered Feedback</h3>
-              <p className="mt-3 text-sm text-slate-400 leading-relaxed">
-                Client feedback gets lost across email threads, text messages, and comment threads, leading to repeated work.
-              </p>
-            </div>
-
-            <div className="bg-slate-950/80 p-8 rounded-2xl border border-slate-800 hover:border-slate-700 transition-all">
-              <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-6">
-                <AlertTriangle className="w-6 h-6 text-amber-400" />
-              </div>
-              <h3 className="text-xl font-bold text-white">Unpaid Scope Creep</h3>
-              <p className="mt-3 text-sm text-slate-400 leading-relaxed">
-                Small additional requests pile up without additional billing, eating away at your profit margin.
-              </p>
-            </div>
-
-            <div className="bg-slate-950/80 p-8 rounded-2xl border border-slate-800 hover:border-slate-700 transition-all">
-              <div className="w-12 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center mb-6">
-                <Clock className="w-6 h-6 text-cyan-400" />
-              </div>
-              <h3 className="text-xl font-bold text-white">Constant Status Requests</h3>
-              <p className="mt-3 text-sm text-slate-400 leading-relaxed">
-                Clients asking "Any updates?" every 2 days because they lack a transparent live view of progress.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* How It Works */}
-      <section id="how-it-works" className="py-24 relative overflow-hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-3xl mx-auto">
-            <h2 className="text-xs font-bold text-indigo-400 uppercase tracking-wider">Simple Workflow</h2>
-            <p className="mt-2 text-3xl sm:text-4xl font-extrabold text-white">
-              Up and running in 3 easy steps.
-            </p>
-          </div>
-
-          <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-8 relative">
-            <div className="bg-slate-900/50 p-8 rounded-2xl border border-slate-800 relative">
-              <div className="text-5xl font-extrabold text-indigo-500/20 mb-4">01</div>
-              <h3 className="text-xl font-bold text-white">Create & Invite</h3>
-              <p className="mt-2 text-sm text-slate-400 leading-relaxed">
-                Set up a project in seconds and generate a zero-login client link for your client.
-              </p>
-            </div>
-
-            <div className="bg-slate-900/50 p-8 rounded-2xl border border-slate-800 relative">
-              <div className="text-5xl font-extrabold text-indigo-500/20 mb-4">02</div>
-              <h3 className="text-xl font-bold text-white">Work Naturally</h3>
-              <p className="mt-2 text-sm text-slate-400 leading-relaxed">
-                Add notes, check off tasks, and upload files. Everything syncs to the client portal automatically.
-              </p>
-            </div>
-
-            <div className="bg-slate-900/50 p-8 rounded-2xl border border-slate-800 relative">
-              <div className="text-5xl font-extrabold text-indigo-500/20 mb-4">03</div>
-              <h3 className="text-xl font-bold text-white">Automate Reports</h3>
-              <p className="mt-2 text-sm text-slate-400 leading-relaxed">
-                Let AI generate weekly status summaries and alert you if scope creep is detected.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Feature Showcase */}
-      <section id="features" className="py-24 bg-slate-900/60 border-t border-slate-800/80">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-3xl mx-auto mb-16">
-            <h2 className="text-xs font-bold text-indigo-400 uppercase tracking-wider">Features</h2>
-            <p className="mt-2 text-3xl sm:text-4xl font-extrabold text-white">
-              Everything you need to deliver world-class client work.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800">
-              <Layers className="w-8 h-8 text-indigo-400 mb-4" />
-              <h3 className="text-lg font-bold text-white">Milestones & Tasks</h3>
-              <p className="mt-2 text-sm text-slate-400">Keep deliverables structured and visible with real-time status indicators.</p>
-            </div>
-
-            <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800">
-              <Users className="w-8 h-8 text-cyan-400 mb-4" />
-              <h3 className="text-lg font-bold text-white">Zero-Login Client Portal</h3>
-              <p className="mt-2 text-sm text-slate-400">Share a link with clients to let them view progress without creating logins.</p>
-            </div>
-
-            <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800">
-              <Bot className="w-8 h-8 text-emerald-400 mb-4" />
-              <h3 className="text-lg font-bold text-white">AI Weekly Reports</h3>
-              <p className="mt-2 text-sm text-slate-400">Automatically generate executive summaries of weekly progress for stakeholders.</p>
-            </div>
-
-            <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800">
-              <AlertTriangle className="w-8 h-8 text-amber-400 mb-4" />
-              <h3 className="text-lg font-bold text-white">Scope Creep Detector</h3>
-              <p className="mt-2 text-sm text-slate-400">AI flags unbilled requests in client comments before they hurt your bottom line.</p>
-            </div>
-
-            <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800">
-              <Mic className="w-8 h-8 text-indigo-400 mb-4" />
-              <h3 className="text-lg font-bold text-white">Voice Assistant</h3>
-              <p className="mt-2 text-sm text-slate-400">Speak updates or record notes hands-free using integrated web speech AI.</p>
-            </div>
-
-            <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800">
-              <DollarSign className="w-8 h-8 text-emerald-400 mb-4" />
-              <h3 className="text-lg font-bold text-white">Milestone Approvals</h3>
-              <p className="mt-2 text-sm text-slate-400">Get client sign-offs on finished phases before moving to the next deliverable.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* FAQ Accordion */}
-      <section id="faq" className="py-24">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-xs font-bold text-indigo-400 uppercase tracking-wider">FAQ</h2>
-            <p className="mt-2 text-3xl font-extrabold text-white">Frequently Asked Questions</p>
-          </div>
-
-          <div className="space-y-4">
-            {faqs.map((faq, idx) => (
-              <div
-                key={idx}
-                className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden transition-all"
+          </Reveal>
+          <Reveal delay={240}>
+            <div className="mt-10 flex flex-col sm:flex-row gap-3 justify-center">
+              <Link
+                to="/register"
+                className="group inline-flex items-center justify-center gap-2 bg-[#1c1917] text-[#faf7f2] px-7 py-3.5 rounded-full font-semibold hover:bg-[#c4673f] transition-colors"
               >
-                <button
-                  onClick={() => toggleFaq(idx)}
-                  className="w-full p-6 text-left flex items-center justify-between gap-4 font-semibold text-white hover:text-indigo-400 transition-colors"
-                >
-                  <span>{faq.question}</span>
-                  <ChevronDown className={`w-5 h-5 transition-transform duration-300 ${openFaq === idx ? "rotate-180 text-indigo-400" : "text-slate-400"}`} />
-                </button>
-                {openFaq === idx && (
-                  <div className="px-6 pb-6 text-sm text-slate-300 leading-relaxed border-t border-slate-800/50 pt-4 animate-fadeIn">
-                    {faq.answer}
-                  </div>
-                )}
-              </div>
+                Start free workspace
+                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+              </Link>
+              <a
+                href="#product"
+                className="inline-flex items-center justify-center gap-2 bg-[#ffffff] border border-[#e8e2d9] px-7 py-3.5 rounded-full font-semibold hover:border-[#1c1917] transition-colors"
+              >
+                <Play className="w-4 h-4 fill-current" />
+                See it in action
+              </a>
+            </div>
+            <ul className="mt-7 flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-[#6b655e]">
+              {["No credit card required", "Zero-login client portals", "Set up in about a minute"].map((t) => (
+                <li key={t} className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-[#3f6e5b]" />
+                  {t}
+                </li>
+              ))}
+            </ul>
+          </Reveal>
+          <Reveal delay={200}>
+            <HeroDesk />
+          </Reveal>
+        </div>
+      </section>
+
+      {/* Ticker */}
+      <div className="border-y border-[#e8e2d9] bg-[#ffffff] py-5 overflow-hidden">
+        <div
+          className="flex w-max gap-10 whitespace-nowrap text-sm font-medium text-[#6b655e]"
+          style={{ animation: "lsMarquee 30s linear infinite" }}
+        >
+          {[...TICKER, ...TICKER].map((t, i) => (
+            <span key={i} className="flex items-center gap-10">
+              <span>{t}</span>
+              <span className="text-[#c4673f]">•</span>
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* 2. Problem: split with before/after rows */}
+      <section id="problem" className="py-28">
+        <div className="max-w-7xl mx-auto px-5 sm:px-8 grid lg:grid-cols-12 gap-12">
+          <div className="lg:col-span-5 lg:sticky lg:top-28 self-start">
+            <Reveal>
+              <p className="text-sm font-semibold text-[#c4673f] uppercase tracking-wider">The problem</p>
+              <h2 className="ls-serif text-4xl md:text-6xl mt-4 leading-[1.02]">
+                Your best hours shouldn't go into <em className="italic">status emails.</em>
+              </h2>
+              <p className="mt-6 text-[#6b655e] leading-relaxed max-w-md">
+                Most freelance time leaks away in small, repeated jobs. ClientSphere takes them off your plate, so
+                you can spend it on the work your clients actually pay for.
+              </p>
+            </Reveal>
+          </div>
+          <div className="lg:col-span-7 divide-y divide-[#e8e2d9] border-y border-[#e8e2d9]">
+            {SWAPS.map((s, i) => (
+              <Reveal key={s.before} delay={i * 90}>
+                <div className="grid md:grid-cols-[1fr_auto_1fr] gap-4 md:gap-8 items-center py-8">
+                  <p className="text-[#6b655e] line-through decoration-[#c4673f]/60 decoration-2">{s.before}</p>
+                  <ArrowRight className="hidden md:block w-5 h-5 text-[#c4673f]" />
+                  <p className="ls-serif text-2xl text-[#1c1917]">{s.after}</p>
+                </div>
+              </Reveal>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Final CTA Banner */}
-      <section className="py-20 relative overflow-hidden">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="bg-gradient-to-r from-indigo-900/90 via-indigo-800/80 to-slate-900 p-10 md:p-16 rounded-3xl border border-indigo-500/30 text-center shadow-2xl relative">
-            <h2 className="text-3xl md:text-5xl font-extrabold text-white tracking-tight">
-              Ready to transform your client relationships?
-            </h2>
-            <p className="mt-4 text-slate-200 text-base md:text-lg max-w-xl mx-auto">
-              Join thousands of freelancers and agencies delivering transparent, stress-free work today.
-            </p>
-            <div className="mt-8 flex justify-center">
-              <Link
-                to="/register"
-                className="px-8 py-4 rounded-xl bg-white text-slate-950 font-bold text-base hover:bg-slate-100 shadow-lg hover:scale-105 transition-all flex items-center gap-2"
-              >
-                <span>Get Started Free</span>
-                <ArrowRight className="w-5 h-5 text-indigo-600" />
-              </Link>
+      {/* 3. How it works: horizontal timeline */}
+      <section id="how-it-works" className="py-28 bg-[#f4efe7]">
+        <div className="max-w-7xl mx-auto px-5 sm:px-8">
+          <Reveal className="max-w-2xl">
+            <p className="text-sm font-semibold text-[#3f6e5b] uppercase tracking-wider">How it works</p>
+            <h2 className="ls-serif text-4xl md:text-6xl mt-4 leading-[1.02]">From kickoff to a happy client in three steps.</h2>
+          </Reveal>
+
+          <div className="relative mt-20 grid md:grid-cols-3 gap-12 md:gap-8">
+            <div className="hidden md:block absolute left-0 right-0 top-[22px] h-px bg-[#e8e2d9]">
+              <div className="ls-line h-px bg-[#c4673f] w-full" />
             </div>
+            {STEPS.map((s, i) => (
+              <Reveal key={s.n} delay={i * 180}>
+                <div>
+                  <div className="relative flex items-center gap-4">
+                    <span className="w-11 h-11 rounded-full bg-[#faf7f2] border border-[#c4673f] flex items-center justify-center text-sm font-semibold text-[#c4673f] relative z-10">
+                      {s.n}
+                    </span>
+                  </div>
+                  <h3 className="ls-serif text-2xl mt-8">{s.title}</h3>
+                  <p className="mt-3 text-sm leading-relaxed text-[#6b655e] max-w-xs">{s.text}</p>
+                  <div className="mt-7">
+                    <StepVisual index={i} />
+                  </div>
+                </div>
+              </Reveal>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-800/80 bg-slate-950 py-12 text-xs text-slate-400">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-indigo-400" />
-            <span className="font-semibold text-slate-200">ClientSphere</span>
-            <span>© {new Date().getFullYear()} ClientSphere Inc. All rights reserved.</span>
-          </div>
+      {/* 4. Features: master-detail */}
+      <section id="features" className="py-28">
+        <div className="max-w-7xl mx-auto px-5 sm:px-8">
+          <Reveal className="max-w-3xl">
+            <p className="text-sm font-semibold text-[#c4673f] uppercase tracking-wider">Features</p>
+            <h2 className="ls-serif text-4xl md:text-6xl mt-4 leading-[1.02]">
+              Everything between the first call and the final invoice.
+            </h2>
+          </Reveal>
+          <Reveal delay={100} className="mt-16">
+            <FeatureExplorer />
+          </Reveal>
+        </div>
+      </section>
 
-          <div className="flex items-center gap-6">
-            <a href="#features" className="hover:text-white transition-colors">Features</a>
-            <a href="#how-it-works" className="hover:text-white transition-colors">How It Works</a>
-            <a href="#faq" className="hover:text-white transition-colors">FAQ</a>
-            <Link to="/login" className="hover:text-white transition-colors">Sign In</Link>
+      {/* 5. Product: tilt frame and view toggle */}
+      <section id="product" className="py-28 bg-[#f4efe7]">
+        <div className="max-w-6xl mx-auto px-5 sm:px-8">
+          <Reveal className="text-center max-w-2xl mx-auto">
+            <p className="text-sm font-semibold text-[#3f6e5b] uppercase tracking-wider">See it in action</p>
+            <h2 className="ls-serif text-4xl md:text-6xl mt-4 leading-[1.02]">Your team sees everything. Clients see what you share.</h2>
+          </Reveal>
+          <Reveal delay={120} className="mt-16">
+            <ProductShowcase />
+          </Reveal>
+        </div>
+      </section>
+
+      {/* 6. Audience */}
+      <section className="py-28">
+        <div className="max-w-7xl mx-auto px-5 sm:px-8">
+          <Reveal className="max-w-2xl">
+            <p className="text-sm font-semibold text-[#c4673f] uppercase tracking-wider">Built for</p>
+            <h2 className="ls-serif text-4xl md:text-6xl mt-4 leading-[1.02]">Independent work that needs to look professional.</h2>
+          </Reveal>
+          <Reveal delay={100} className="mt-14">
+            <AudienceList />
+          </Reveal>
+        </div>
+      </section>
+
+      {/* 7. FAQ: two column */}
+      <section id="faq" className="py-28 bg-[#f4efe7]">
+        <div className="max-w-7xl mx-auto px-5 sm:px-8 grid lg:grid-cols-12 gap-12">
+          <div className="lg:col-span-4 self-start lg:sticky lg:top-28">
+            <Reveal>
+              <p className="text-sm font-semibold text-[#3f6e5b] uppercase tracking-wider">FAQ</p>
+              <h2 className="ls-serif text-4xl md:text-5xl mt-4 leading-[1.02]">Questions, answered.</h2>
+              <p className="mt-5 text-[#6b655e] leading-relaxed">
+                Still curious? Start a free workspace and explore it yourself.
+              </p>
+            </Reveal>
           </div>
+          <div className="lg:col-span-8 divide-y divide-[#e8e2d9] border-y border-[#e8e2d9]">
+            {FAQS.map((f, i) => {
+              const open = openFaq === i;
+              return (
+                <Reveal key={f.q} delay={i * 70}>
+                  <div>
+                    <button
+                      onClick={() => setOpenFaq(open ? null : i)}
+                      className="w-full flex items-start gap-6 text-left py-7"
+                      aria-expanded={open}
+                    >
+                      <span className="ls-serif text-sm text-[#c4673f] pt-1 w-8 shrink-0">0{i + 1}</span>
+                      <span className="flex-1 ls-serif text-2xl leading-snug">{f.q}</span>
+                      <span className="w-8 h-8 shrink-0 rounded-full border border-[#e8e2d9] flex items-center justify-center">
+                        {open ? <Minus className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                      </span>
+                    </button>
+                    {open && <p className="ls-fade pb-8 pl-14 pr-14 text-[15px] leading-relaxed text-[#6b655e]">{f.a}</p>}
+                  </div>
+                </Reveal>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* 8. Final CTA: full-width band */}
+      <section className="py-28">
+        <Reveal>
+          <div className="relative overflow-hidden bg-[#f6dccb]">
+            <div className="max-w-6xl mx-auto px-5 sm:px-8 py-24 md:py-32 text-center relative">
+              <h2 className="ls-serif text-5xl md:text-7xl leading-[0.98] max-w-4xl mx-auto">
+                Your next client update should take <em className="italic text-[#a4502d]">zero minutes.</em>
+              </h2>
+              <p className="mt-7 text-[#3a342e] max-w-xl mx-auto text-lg">
+                Start free, invite your first client today, and let the workspace handle the rest.
+              </p>
+              <div className="mt-11 flex flex-col sm:flex-row gap-3 justify-center">
+                <Link
+                  to="/register"
+                  className="group inline-flex items-center justify-center gap-2 bg-[#1c1917] text-[#faf7f2] px-8 py-4 rounded-full font-semibold hover:bg-[#a4502d] transition-colors"
+                >
+                  Get started free
+                  <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                </Link>
+                <Link
+                  to="/login"
+                  className="inline-flex items-center justify-center px-8 py-4 rounded-full font-semibold border border-[#1c1917]/30 hover:border-[#1c1917] transition-colors"
+                >
+                  Sign in
+                </Link>
+              </div>
+            </div>
+          </div>
+        </Reveal>
+      </section>
+
+      {/* Footer with oversized wordmark */}
+      <footer className="pt-16 pb-0 overflow-hidden">
+        <div className="max-w-7xl mx-auto px-5 sm:px-8 flex flex-col md:flex-row items-center justify-between gap-6 text-sm text-[#6b655e]">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-[#c4673f]" />
+            <span>© {new Date().getFullYear()} ClientSphere Inc.</span>
+          </div>
+          <div className="flex items-center gap-6">
+            <a href="#features" className="hover:text-[#1c1917] transition-colors">Features</a>
+            <a href="#how-it-works" className="hover:text-[#1c1917] transition-colors">How it works</a>
+            <a href="#faq" className="hover:text-[#1c1917] transition-colors">FAQ</a>
+            <Link to="/login" className="hover:text-[#1c1917] transition-colors">Sign in</Link>
+          </div>
+        </div>
+        <div className="ls-serif text-center select-none text-[18vw] leading-[0.85] text-[#1c1917]/[0.06] mt-10 whitespace-nowrap">
+          ClientSphere
         </div>
       </footer>
     </div>

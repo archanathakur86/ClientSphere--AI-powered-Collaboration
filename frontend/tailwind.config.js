@@ -1,25 +1,25 @@
 /** @type {import('tailwindcss').Config} */
-// Pastel theme. Class names used across the app (slate-950, text-white, indigo-600...)
-// are remapped here, so every screen picks up the new look without touching component logic.
-// "slate" is inverted: slate-950 is the page background (light cream), slate-100 is body text (ink).
+// Light pastel theme. Class names used across the app (slate-950, text-white, indigo-600...)
+// are remapped here, so every screen picks up the look without touching component logic.
+// "slate" is inverted: slate-950 is the page background (light), slate-100 is body text (dark).
 export default {
   content: ["./index.html", "./src/**/*.{js,jsx}"],
   theme: {
     extend: {
       colors: {
-        white: "#2f2a25", // bright titles and text-on-accent become deep ink
+        white: "#111827", // bright titles and text-on-accent become deep ink
         slate: {
-          50: "#1f1b18",
-          100: "#2f2a25",
-          200: "#4a443d",
-          300: "#5f574e",
-          400: "#7f766b",
-          500: "#9c9185",
-          600: "#c4b9aa",
-          700: "#ddd4c7",
-          800: "#ebe4da",
-          900: "#fffdf9",
-          950: "#fbf7f1",
+          50: "#111827",
+          100: "#1f2937",
+          200: "#374151",
+          300: "#4b5563",
+          400: "#6b7280",
+          500: "#7b8494",
+          600: "#aeb5c0",
+          700: "#d1d5db",
+          800: "#e5e7eb",
+          900: "#ffffff",
+          950: "#f7f8fa",
         },
         // Primary accent: soft sage
         indigo: {
@@ -32,7 +32,7 @@ export default {
           600: "#a6d4bd",
           700: "#86b99f",
           800: "#3e6557",
-          900: "#2e4b41",
+          900: "#e3f2ea", // light tint, used for the landing banner
         },
         brand: {
           50: "#f3f8f5",
@@ -46,7 +46,7 @@ export default {
           800: "#3e6557",
           900: "#2e4b41",
         },
-        // Secondary accent: soft peach (replaces cyan/teal)
+        // Secondary accent: soft peach
         cyan: {
           50: "#fdf6f1",
           100: "#fbe9dc",
@@ -61,42 +61,18 @@ export default {
         },
         // Success: pastel mint
         emerald: {
-          50: "#f2f9f5",
-          100: "#e0f2e8",
-          200: "#bfe3cd",
-          300: "#7cc29b",
-          400: "#3f8f6b",
-          500: "#5fae88",
-          600: "#8fd0ad",
-          700: "#5fae88",
-          800: "#2f6d50",
-          900: "#22523c",
+          50: "#f2f9f5", 100: "#e0f2e8", 200: "#bfe3cd", 300: "#2f7a55", 400: "#3f8f6b",
+          500: "#5fae88", 600: "#8fd0ad", 700: "#5fae88", 800: "#2f6d50", 900: "#22523c",
         },
         green: {
-          50: "#f2f9f5",
-          100: "#e0f2e8",
-          200: "#bfe3cd",
-          300: "#7cc29b",
-          400: "#3f8f6b",
-          500: "#5fae88",
-          600: "#8fd0ad",
-          700: "#5fae88",
-          800: "#2f6d50",
-          900: "#22523c",
+          50: "#f2f9f5", 100: "#e0f2e8", 200: "#bfe3cd", 300: "#2f7a55", 400: "#3f8f6b",
+          500: "#5fae88", 600: "#8fd0ad", 700: "#5fae88", 800: "#2f6d50", 900: "#22523c",
         },
         sky: {
-          50: "#f2f9f5",
-          100: "#e0f2e8",
-          200: "#bfe3cd",
-          300: "#7cc29b",
-          400: "#3f8f6b",
-          500: "#5fae88",
-          600: "#8fd0ad",
-          700: "#5fae88",
-          800: "#2f6d50",
-          900: "#22523c",
+          50: "#f2f9f5", 100: "#e0f2e8", 200: "#bfe3cd", 300: "#2f7a55", 400: "#3f8f6b",
+          500: "#5fae88", 600: "#8fd0ad", 700: "#5fae88", 800: "#2f6d50", 900: "#22523c",
         },
-        // Warning: pastel butter / amber
+        // Warning: pastel butter
         amber: {
           50: "#fdf9ef",
           100: "#faf0d6",
@@ -123,35 +99,19 @@ export default {
         },
         // Danger: soft rose
         rose: {
-          50: "#fdf3f4",
-          100: "#fbe3e6",
-          200: "#f5c6cd",
-          300: "#d98a98",
-          400: "#c0566a",
-          500: "#e28595",
-          600: "#f0a6b1",
-          700: "#d97f8f",
-          800: "#8f3346",
-          900: "#6b2433",
+          50: "#fdf3f4", 100: "#fbe3e6", 200: "#f5c6cd", 300: "#b4475a", 400: "#c0566a",
+          500: "#e28595", 600: "#f0a6b1", 700: "#d97f8f", 800: "#8f3346", 900: "#6b2433",
         },
         red: {
-          50: "#fdf3f4",
-          100: "#fbe3e6",
-          200: "#f5c6cd",
-          300: "#d98a98",
-          400: "#c0566a",
-          500: "#e28595",
-          600: "#f0a6b1",
-          700: "#d97f8f",
-          800: "#8f3346",
-          900: "#6b2433",
+          50: "#fdf3f4", 100: "#fbe3e6", 200: "#f5c6cd", 300: "#b4475a", 400: "#c0566a",
+          500: "#e28595", 600: "#f0a6b1", 700: "#d97f8f", 800: "#8f3346", 900: "#6b2433",
         },
       },
       fontFamily: {
         sans: ["DM Sans", "ui-sans-serif", "system-ui", "sans-serif"],
       },
       boxShadow: {
-        soft: "0 1px 2px rgba(74, 60, 40, 0.06), 0 8px 24px -12px rgba(74, 60, 40, 0.14)",
+        soft: "0 1px 2px rgba(15, 23, 42, 0.05), 0 8px 24px -12px rgba(15, 23, 42, 0.12)",
       },
     },
   },

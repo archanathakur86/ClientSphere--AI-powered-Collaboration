@@ -1,11 +1,31 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
+import { ShieldCheck, FileText, Download, CreditCard, MessageSquare, Send, Paperclip, ChevronDown, AlertTriangle, Check, Undo2, X } from "lucide-react";
 import api, { clearPortalSession, PORTAL_SESSION_EXPIRED } from "../api/axios.js";
 import { useRealtime } from "../hooks/useRealtime.js";
 import NotificationBell from "../components/NotificationBell.jsx";
 import OnlineUsersPill from "../components/OnlineUsersPill.jsx";
-import { Sparkles, CheckCircle2, Clock, AlertTriangle, FileText, Download, Send, CreditCard, ShieldCheck, LogOut, MessageSquare } from "lucide-react";
+
+const STYLES = `
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;1,9..144,400;1,9..144,500&display=swap');
+
+.cp-serif { font-family: 'Fraunces', Georgia, serif; font-weight: 500; letter-spacing: -0.025em; }
+
+@keyframes cpUp { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+@keyframes cpFade { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+@keyframes cpDrift { 0%,100% { transform: translate(0,0); } 50% { transform: translate(18px,-12px); } }
+
+.cp-up { animation: cpUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+.cp-fade { animation: cpFade 0.4s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.cp-drift { animation: cpDrift 18s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+`;
+
+const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
 const money = (amount, currency = "usd") => {
   try {
@@ -17,35 +37,89 @@ const money = (amount, currency = "usd") => {
 
 const formatDate = (value) => (value ? new Date(value).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "");
 
+const isOverdueMilestone = (m) => m.status !== "approved" && Boolean(m.dueDate) && new Date(m.dueDate) < new Date();
+const isOverdueInvoice = (i) => i.status !== "paid" && (i.status === "overdue" || (Boolean(i.dueDate) && new Date(i.dueDate) < new Date()));
+
 const MILESTONE_STATUS = {
-  pending: { label: "Upcoming", chip: "bg-slate-500/10 text-slate-400 dark:text-slate-300 light:text-slate-700 border-slate-500/30", hint: "The freelancer hasn't submitted this yet." },
-  "in review": { label: "Needs your review", chip: "bg-amber-500/10 text-amber-400 dark:text-amber-300 light:text-amber-700 border-amber-500/30", hint: "" },
-  "changes requested": { label: "Changes requested", chip: "bg-orange-500/10 text-orange-400 dark:text-orange-300 light:text-orange-700 border-orange-500/30", hint: "Waiting for the freelancer to revise this." },
-  approved: { label: "Approved", chip: "bg-emerald-500/10 text-emerald-400 dark:text-emerald-300 light:text-emerald-700 border-emerald-500/30", hint: "" },
+  pending: { label: "Upcoming", color: "#a39c92", tint: "#f1ece4", ink: "#6b655e", hint: "The freelancer hasn't submitted this yet." },
+  "in review": { label: "Needs your review", color: "#e0a46f", tint: "#f7ecc9", ink: "#8a6418", hint: "" },
+  "changes requested": { label: "Changes requested", color: "#c4673f", tint: "#f9e1d6", ink: "#a4502d", hint: "Waiting for the freelancer to revise this." },
+  approved: { label: "Approved", color: "#3f6e5b", tint: "#dcebe2", ink: "#3f6e5b", hint: "" },
 };
+const OVERDUE_STYLE = { label: "Overdue", color: "#b4475a", tint: "#f9e1d6", ink: "#8f3346" };
 
 const INVOICE_STATUS = {
-  sent: "bg-indigo-500/10 text-indigo-400 dark:text-indigo-300 light:text-indigo-700 border-indigo-500/30",
-  overdue: "bg-rose-500/10 text-rose-400 dark:text-rose-300 light:text-rose-700 border-rose-500/30",
-  paid: "bg-emerald-500/10 text-emerald-400 dark:text-emerald-300 light:text-emerald-700 border-emerald-500/30",
+  sent: { label: "Sent", tint: "#f7ecc9", ink: "#8a6418" },
+  overdue: { label: "Overdue", tint: "#f9e1d6", ink: "#a4502d" },
+  paid: { label: "Paid", tint: "#dcebe2", ink: "#3f6e5b" },
 };
 
-const Chip = ({ className, children }) => (
-  <span className={`text-[11px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full border whitespace-nowrap ${className}`}>{children}</span>
-);
+const inputCls =
+  "w-full px-4 py-3 bg-[#ffffff] border border-[#e8e2d9] rounded-2xl text-sm placeholder-[#a39c92] focus:outline-none focus:border-[#c4673f] focus:ring-2 focus:ring-[#f6dccb] resize-none";
+
+const btnPrimary =
+  "inline-flex items-center justify-center gap-2 text-xs font-semibold bg-[#1c1917] text-[#faf7f2] px-4 py-2.5 rounded-full hover:bg-[#c4673f] transition-colors disabled:opacity-50";
+const btnGhost =
+  "inline-flex items-center justify-center gap-2 text-xs font-semibold border border-[#e8e2d9] bg-[#ffffff] text-[#1c1917] px-4 py-2.5 rounded-full hover:border-[#c4673f] hover:text-[#a4502d] transition-colors disabled:opacity-50";
+
+const initialsOf = (name = "") => name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase() || "?";
+
+const sizeLabel = (bytes = 0) => (bytes > 1024 * 1024 ? `${(bytes / (1024 * 1024)).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`);
 
 const Screen = ({ title, children }) => (
-  <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4 bg-radial-gradient">
-    <div className="card max-w-md w-full text-center space-y-4 p-8 shadow-2xl">
-      <div className="w-12 h-12 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-2xl flex items-center justify-center mx-auto">
-        <Sparkles className="w-6 h-6" />
+  <div className="relative min-h-screen bg-[#faf7f2] text-[#1c1917] font-sans flex items-center justify-center px-5 overflow-hidden">
+    <style>{STYLES}</style>
+    <div className="cp-drift pointer-events-none absolute -top-32 -left-24 w-[420px] h-[420px] rounded-full bg-[#f6dccb] opacity-60 blur-3xl" />
+    <div className="cp-drift pointer-events-none absolute -bottom-32 -right-24 w-[420px] h-[420px] rounded-full bg-[#dcebe2] opacity-70 blur-3xl" />
+    <div className="cp-up relative max-w-md w-full rounded-[32px] bg-[#ffffff] border border-[#e8e2d9] p-10 text-center shadow-[0_40px_80px_-40px_rgba(60,40,20,0.35)]">
+      <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-[#f6dccb] to-[#dcebe2] flex items-center justify-center">
+        <ShieldCheck className="w-6 h-6 text-[#a4502d]" />
       </div>
-      <div className="text-xs uppercase tracking-widest text-indigo-400 font-bold">ClientSphere Portal</div>
-      <h1 className="text-xl font-bold text-white tracking-tight">{title}</h1>
-      <div className="text-xs text-slate-400 space-y-3 leading-relaxed">{children}</div>
+      <p className="mt-6 text-[11px] uppercase tracking-[0.22em] text-[#6b655e]">ClientSphere</p>
+      <h1 className="cp-serif text-4xl mt-3 leading-tight">{title}</h1>
+      <div className="mt-4 text-sm text-[#6b655e] space-y-3 leading-relaxed">{children}</div>
     </div>
   </div>
 );
+
+function ProgressRing({ percent }) {
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    const t = setTimeout(() => setShown(percent), 200);
+    return () => clearTimeout(t);
+  }, [percent]);
+  const r = 58;
+  const c = 2 * Math.PI * r;
+  return (
+    <div className="relative w-36 h-36 shrink-0">
+      <svg width="144" height="144" viewBox="0 0 144 144" className="-rotate-90">
+        <circle cx="72" cy="72" r={r} fill="none" stroke="#efe9df" strokeWidth="10" />
+        <defs>
+          <linearGradient id="cpGrad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#3f6e5b" />
+            <stop offset="100%" stopColor="#86b99f" />
+          </linearGradient>
+        </defs>
+        <circle
+          cx="72"
+          cy="72"
+          r={r}
+          fill="none"
+          stroke="url(#cpGrad)"
+          strokeWidth="10"
+          strokeLinecap="round"
+          strokeDasharray={c}
+          strokeDashoffset={c - (shown / 100) * c}
+          style={{ transition: "stroke-dashoffset 1.4s cubic-bezier(0.16,1,0.3,1)" }}
+        />
+      </svg>
+      <span className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="cp-serif text-4xl leading-none">{percent}%</span>
+        <span className="text-[10px] uppercase tracking-[0.2em] text-[#6b655e] mt-1">complete</span>
+      </span>
+    </div>
+  );
+}
 
 export default function ClientPortal() {
   const { projectId, token: urlToken } = useParams();
@@ -59,8 +133,12 @@ export default function ClientPortal() {
 
   const [changeFor, setChangeFor] = useState(null); // milestone id whose "request changes" form is open
   const [changeText, setChangeText] = useState("");
+  const [approvingId, setApprovingId] = useState(null); // milestone id awaiting inline approval confirm
   const [comment, setComment] = useState("");
+  const [pendingFile, setPendingFile] = useState(null); // file chosen with the paperclip, sent with the next message
+  const fileInputRef = useRef(null);
   const [busy, setBusy] = useState(""); // which action is running, e.g. "approve:<id>"
+  const [showAllNotes, setShowAllNotes] = useState(false);
 
   const realtime = useRealtime({ projectId, enabled: status === "ready", token: sessionToken });
 
@@ -73,6 +151,7 @@ export default function ClientPortal() {
 
   const loadPortal = useCallback(async () => {
     const res = await api.get(`/client/projects/${projectId}`);
+    // Every visit returns a renewed session token, so an active client stays signed in.
     if (res.data.clientAccessToken) {
       localStorage.setItem("portalToken", res.data.clientAccessToken);
       localStorage.setItem("portalProjectId", projectId);
@@ -82,6 +161,9 @@ export default function ClientPortal() {
     return res.data;
   }, [projectId]);
 
+  // Boot: either exchange the magic link (then hide the secret from the URL), or resume the
+  // stored session. The page works after a refresh and when opened from an email link
+  // that has no token in it.
   useEffect(() => {
     let cancelled = false;
     const boot = async () => {
@@ -90,6 +172,7 @@ export default function ClientPortal() {
           const res = await api.get(`/client/magic/${projectId}/${urlToken}`);
           if (cancelled) return;
           storeSession(res.data.clientAccessToken);
+          // Replace the URL so the secret link isn't left in history or screenshots.
           navigate(`/client/${projectId}`, { replace: true });
           return;
         }
@@ -119,12 +202,14 @@ export default function ClientPortal() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, urlToken]);
 
+  // Session ended somewhere else (revoked / expired): show the friendly screen, not /login.
   useEffect(() => {
     const onExpired = () => setStatus("expired");
     window.addEventListener(PORTAL_SESSION_EXPIRED, onExpired);
     return () => window.removeEventListener(PORTAL_SESSION_EXPIRED, onExpired);
   }, []);
 
+  // Live updates: when the freelancer submits a milestone, sends an invoice, etc.
   useEffect(() => {
     const socket = realtime.socket;
     if (!socket) return undefined;
@@ -133,12 +218,14 @@ export default function ClientPortal() {
     return () => socket.off("notification:new", refresh);
   }, [realtime.socket, loadPortal]);
 
+  // Coming back from Stripe Checkout (?paid=1 / ?payment=cancelled).
   const handledReturn = useRef(false);
   useEffect(() => {
     if (status !== "ready" || handledReturn.current) return;
     if (searchParams.get("paid") === "1") {
       handledReturn.current = true;
       toast.success("Payment received. Thank you!");
+      // The payment webhook can land a moment after the redirect, so refresh twice.
       setTimeout(() => loadPortal().catch(() => null), 2500);
       setTimeout(() => loadPortal().catch(() => null), 8000);
       setSearchParams({}, { replace: true });
@@ -160,19 +247,17 @@ export default function ClientPortal() {
     }
   };
 
-  const approveMilestone = (milestone) => {
-    const price = milestone.amount ? ` (${money(milestone.amount)})` : "";
-    if (!window.confirm(`Approve "${milestone.title}"${price}?\n\nThis confirms you accept the work and the freelancer can invoice for it.`)) return;
+  const approveMilestone = (milestone) =>
     run(
       `approve:${milestone._id}`,
       async () => {
         await api.post(`/client/projects/${projectId}/milestones/${milestone._id}/approve`);
         toast.success("Milestone approved");
+        setApprovingId(null);
         await loadPortal();
       },
       "Approval failed"
     );
-  };
 
   const sendChangeRequest = (milestone) => {
     if (!changeText.trim()) return toast.error("Describe the changes you'd like first");
@@ -189,17 +274,35 @@ export default function ClientPortal() {
     );
   };
 
+  const pickFile = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.size > MAX_FILE_BYTES) return toast.error("Files must be under 10MB");
+    setPendingFile(file);
+  };
+
+  // A message can be text, a file, or both. The file goes along with the message so the team sees them together.
   const submitComment = (e) => {
-    e.preventDefault();
-    if (!comment.trim()) return;
+    e?.preventDefault?.();
+    if (!comment.trim() && !pendingFile) return;
     run(
       "comment",
       async () => {
-        const res = await api.post(`/client/projects/${projectId}/comments`, { content: comment.trim() });
+        let res;
+        if (pendingFile) {
+          const form = new FormData();
+          form.append("content", comment.trim());
+          form.append("file", pendingFile);
+          res = await api.post(`/client/projects/${projectId}/comments`, form, { headers: { "Content-Type": "multipart/form-data" } });
+        } else {
+          res = await api.post(`/client/projects/${projectId}/comments`, { content: comment.trim() });
+        }
         setComment("");
+        setPendingFile(null);
         setData((prev) => ({ ...prev, comments: [...(prev.comments || []), res.data.comment] }));
       },
-      "Couldn't send your comment"
+      "Couldn't send your message"
     );
   };
 
@@ -213,6 +316,8 @@ export default function ClientPortal() {
       "Couldn't start the payment"
     );
 
+  // Authenticated downloads can't be plain links, so fetch as a blob. The tab is opened first,
+  // inside the click, because browsers block pop-ups opened after an await.
   const openBlob = async (path, fallbackName) => {
     const win = window.open("", "_blank");
     try {
@@ -240,9 +345,9 @@ export default function ClientPortal() {
 
   if (status === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center text-slate-400 bg-slate-950">
-        <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mr-3" />
-        <span className="text-sm">Opening secure client portal…</span>
+      <div className="min-h-screen flex items-center justify-center bg-[#faf7f2] text-[#6b655e]">
+        <style>{STYLES}</style>
+        <p className="cp-serif text-2xl animate-pulse">Opening your portal…</p>
       </div>
     );
   }
@@ -250,9 +355,11 @@ export default function ClientPortal() {
   if (status === "needs-link") {
     return (
       <Screen title="Open the link from your invitation">
-        <p>This portal is private. Use the secure magic link in the email your freelancer sent you to get in.</p>
-        <p className="text-slate-500">Can't find it? Ask them to send a fresh invitation.</p>
-        <Link to="/" className="btn btn-primary text-xs inline-flex mt-2">Learn about ClientSphere</Link>
+        <p>This portal is private. Use the secure link in the email your freelancer sent you to get in.</p>
+        <p>Can't find it? Ask them to send a new invitation.</p>
+        <Link to="/" className="inline-block mt-2 text-sm font-semibold text-[#c4673f] hover:text-[#1c1917]">
+          Learn about ClientSphere
+        </Link>
       </Screen>
     );
   }
@@ -261,7 +368,7 @@ export default function ClientPortal() {
     return (
       <Screen title="This access link has expired">
         <p>Your link has expired or the freelancer ended access. Nothing is wrong on your side.</p>
-        <p>Please ask your freelancer to send you a fresh invitation link.</p>
+        <p>Please ask them to send you a fresh invitation link.</p>
       </Screen>
     );
   }
@@ -270,7 +377,9 @@ export default function ClientPortal() {
     return (
       <Screen title="Something went wrong">
         <p>{errorMessage}</p>
-        <button className="btn btn-primary text-xs mt-2" onClick={() => window.location.reload()}>Try again</button>
+        <button className={`${btnPrimary} mt-2`} onClick={() => window.location.reload()}>
+          Try again
+        </button>
       </Screen>
     );
   }
@@ -286,33 +395,34 @@ export default function ClientPortal() {
   const progress = portal.progress || 0;
   const awaitingReview = milestones.filter((m) => m.status === "in review").length;
   const unpaid = invoices.filter((i) => i.status !== "paid");
+  const overdueMilestones = milestones.filter(isOverdueMilestone).length;
+  const overdueInvoices = unpaid.filter(isOverdueInvoice).length;
+  const clientName = portal.project.clientName || "Client";
+  const visibleNotes = showAllNotes ? notes : notes.slice(0, 3);
+  const sendDisabled = busy === "comment" || (!comment.trim() && !pendingFile);
 
   return (
-    <div className="min-h-screen bg-slate-950 dark:bg-slate-950 light:bg-slate-50 text-slate-100 dark:text-slate-100 light:text-slate-900 font-sans pb-16 bg-radial-gradient">
-      {/* Top Client Header Bar */}
-      <header className="border-b border-slate-800/80 dark:border-slate-800/80 light:border-slate-200 bg-slate-950/80 dark:bg-slate-950/80 light:bg-white/80 backdrop-blur-xl sticky top-0 z-30">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 h-20 flex items-center justify-between gap-4">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                Secure Client Portal
-              </span>
-            </div>
-            <h1 className="text-xl sm:text-2xl font-extrabold text-white dark:text-white light:text-slate-900 tracking-tight mt-0.5 truncate">
-              {portal.project.name}
-            </h1>
-            {portal.project.description && (
-              <p className="text-xs text-slate-400 dark:text-slate-400 light:text-slate-500 truncate max-w-lg">
-                {portal.project.description}
-              </p>
-            )}
+    <div className="relative min-h-screen bg-[#faf7f2] text-[#1c1917] font-sans selection:bg-[#f6dccb]">
+      <style>{STYLES}</style>
+      <div className="cp-drift pointer-events-none fixed -top-40 -left-32 w-[480px] h-[480px] rounded-full bg-[#f6dccb] opacity-40 blur-3xl" />
+      <div className="cp-drift pointer-events-none fixed top-60 -right-40 w-[420px] h-[420px] rounded-full bg-[#dcebe2] opacity-50 blur-3xl" style={{ animationDelay: "-7s" }} />
+
+      {/* Header */}
+      <header className="sticky top-0 z-30 bg-[#faf7f2]/80 backdrop-blur-xl border-b border-[#e8e2d9]">
+        <div className="max-w-5xl mx-auto px-5 h-16 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5">
+            <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#f6dccb] to-[#dcebe2] flex items-center justify-center">
+              <ShieldCheck className="w-4 h-4 text-[#a4502d]" />
+            </span>
+            <span className="text-sm font-semibold">ClientSphere</span>
+            <span className="hidden sm:inline text-[10px] uppercase tracking-[0.2em] text-[#6b655e] ml-2">Secure portal</span>
           </div>
-          <div className="flex items-center gap-4 flex-shrink-0">
-            <div className="hidden sm:block text-right text-xs">
-              <div className="font-bold text-white dark:text-white light:text-slate-900">{portal.project.clientName || "Client"}</div>
-              <button onClick={signOut} className="text-slate-400 hover:text-rose-400 text-[11px] font-medium transition-colors">
-                Sign out
-              </button>
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:flex items-center gap-2 pl-1 pr-3 py-1 rounded-full bg-[#ffffff] border border-[#e8e2d9]">
+              <span className="w-7 h-7 rounded-full bg-[#f6dccb] text-[#a4502d] cp-serif text-sm flex items-center justify-center">
+                {initialsOf(clientName)}
+              </span>
+              <span className="text-xs font-semibold max-w-[8rem] truncate">{clientName}</span>
             </div>
             <NotificationBell
               notifications={realtime.notifications}
@@ -320,160 +430,280 @@ export default function ClientPortal() {
               onMarkRead={realtime.markNotificationRead}
               onMarkAllRead={realtime.markAllRead}
             />
+            <button onClick={signOut} className="text-xs font-semibold text-[#6b655e] hover:text-[#b4475a] px-3 py-2 rounded-full hover:bg-[#f9e1d6] transition-colors">
+              Sign out
+            </button>
           </div>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 pt-8 space-y-6">
-        {(awaitingReview > 0 || unpaid.length > 0) && (
-          <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-5 py-4 text-xs text-amber-300 dark:text-amber-200 shadow-md space-y-1 animate-fadeIn">
-            {awaitingReview > 0 && (
-              <div className="font-semibold flex items-center gap-2">
-                <Clock className="w-4 h-4 text-amber-400" />
-                <span>{awaitingReview} milestone{awaitingReview > 1 ? "s are" : " is"} awaiting your review & approval below.</span>
-              </div>
+      <main className="relative max-w-5xl mx-auto px-5 pt-12 pb-20 space-y-16">
+        {/* Hero */}
+        <section className="cp-up grid md:grid-cols-12 gap-10 items-center">
+          <div className="md:col-span-8">
+            <span className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#3f6e5b] bg-[#dcebe2] px-3 py-1.5 rounded-full">
+              <ShieldCheck className="w-3.5 h-3.5" /> Private to {clientName}
+            </span>
+            <h1 className="cp-serif text-5xl md:text-7xl mt-6 leading-[1.0]">{portal.project.name}</h1>
+            {portal.project.description && (
+              <p className="mt-5 text-lg text-[#6b655e] leading-relaxed max-w-2xl">{portal.project.description}</p>
             )}
-            {unpaid.length > 0 && (
-              <div className="font-semibold flex items-center gap-2">
-                <CreditCard className="w-4 h-4 text-amber-400" />
-                <span>{unpaid.length} invoice{unpaid.length > 1 ? "s are" : " is"} awaiting payment.</span>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Progress Card */}
-        <section className="card p-6 space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400 light:text-slate-500">
-                Delivery Progress
-              </div>
-              <div className="text-2xl font-extrabold text-white dark:text-white light:text-slate-900 tracking-tight mt-0.5">
-                {progress}% Complete
-              </div>
+            <div className="mt-6">
+              <OnlineUsersPill users={realtime.onlineUsers || []} />
             </div>
-            <OnlineUsersPill users={realtime.onlineUsers || []} />
           </div>
-          <div className="h-3 rounded-full bg-slate-800 dark:bg-slate-800 light:bg-slate-200 overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-indigo-500 to-cyan-400 rounded-full transition-all duration-500"
-              style={{ width: `${progress}%` }}
-            />
+          <div className="md:col-span-4 flex justify-center md:justify-end">
+            <ProgressRing percent={progress} />
           </div>
         </section>
 
-        {/* Latest Progress Update */}
-        <section className="card p-6 space-y-3">
-          <div className="flex items-center justify-between gap-3 border-b border-slate-800 dark:border-slate-800 light:border-slate-200 pb-3">
-            <h2 className="text-sm font-bold text-white dark:text-white light:text-slate-900 flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-indigo-400" />
-              <span>Latest Executive Progress Report</span>
-            </h2>
-            {portal.weeklyUpdateSentAt && (
-              <span className="text-xs text-slate-400 dark:text-slate-400 light:text-slate-500 font-medium">
-                {formatDate(portal.weeklyUpdateSentAt)}
-              </span>
+        {/* Attention */}
+        {(awaitingReview > 0 || unpaid.length > 0 || overdueMilestones > 0) && (
+          <section className="cp-up grid sm:grid-cols-2 gap-4">
+            {overdueMilestones + overdueInvoices > 0 && (
+              <a href={overdueMilestones > 0 ? "#milestones" : "#invoices"} className="group rounded-[24px] bg-[#f9e1d6] border border-[#f2c9b8] p-6 hover:bg-[#f5d2c2] transition-colors">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-[#8f3346] font-semibold flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5" /> Overdue
+                </p>
+                <p className="cp-serif text-3xl mt-2 text-[#6b2e1a]">
+                  {overdueMilestones > 0 && `${overdueMilestones} milestone${overdueMilestones > 1 ? "s" : ""}`}
+                  {overdueMilestones > 0 && overdueInvoices > 0 && " · "}
+                  {overdueInvoices > 0 && `${overdueInvoices} invoice${overdueInvoices > 1 ? "s" : ""}`}
+                </p>
+                <p className="text-xs text-[#8f3346] mt-2 flex items-center gap-1">
+                  See what's past due <ChevronDown className="w-3.5 h-3.5 group-hover:translate-y-0.5 transition-transform" />
+                </p>
+              </a>
+            )}
+            {awaitingReview > 0 && (
+              <a href="#milestones" className="group rounded-[24px] bg-[#f7ecc9]/70 border border-[#efd9a0] p-6 hover:bg-[#f7ecc9] transition-colors">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-[#8a6418] font-semibold">Needs your review</p>
+                <p className="cp-serif text-3xl mt-2 text-[#5c3f0d]">
+                  {awaitingReview} milestone{awaitingReview > 1 ? "s" : ""}
+                </p>
+                <p className="text-xs text-[#8a6418] mt-2 flex items-center gap-1">
+                  Review now <ChevronDown className="w-3.5 h-3.5 group-hover:translate-y-0.5 transition-transform" />
+                </p>
+              </a>
+            )}
+            {unpaid.length > 0 && overdueInvoices === 0 && (
+              <a href="#invoices" className="group rounded-[24px] bg-[#f9e1d6]/60 border border-[#f2c9b8] p-6 hover:bg-[#f9e1d6] transition-colors">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-[#a4502d] font-semibold">Awaiting payment</p>
+                <p className="cp-serif text-3xl mt-2 text-[#6b2e1a]">
+                  {unpaid.length} invoice{unpaid.length > 1 ? "s" : ""}
+                </p>
+                <p className="text-xs text-[#a4502d] mt-2 flex items-center gap-1">
+                  View invoices <ChevronDown className="w-3.5 h-3.5 group-hover:translate-y-0.5 transition-transform" />
+                </p>
+              </a>
+            )}
+          </section>
+        )}
+
+        {/* Latest update */}
+        <section className="cp-up">
+          <div className="flex items-end justify-between gap-3 mb-5">
+            <p className="text-[11px] uppercase tracking-[0.22em] text-[#6b655e]">Latest update</p>
+            {portal.weeklyUpdateSentAt && <p className="text-xs text-[#a39c92]">{formatDate(portal.weeklyUpdateSentAt)}</p>}
+          </div>
+          <div className="rounded-[32px] bg-[#ffffff] border border-[#e8e2d9] p-8 md:p-10 relative overflow-hidden">
+            <span className="absolute -top-6 -left-2 cp-serif text-[140px] leading-none text-[#f6dccb]">“</span>
+            {portal.weeklyUpdate ? (
+              <p className="relative cp-serif italic text-2xl md:text-3xl leading-snug text-[#3a342e] whitespace-pre-wrap">
+                {portal.weeklyUpdate}
+              </p>
+            ) : (
+              <p className="relative text-[#6b655e]">Your freelancer hasn't sent a progress update yet. It will appear here.</p>
             )}
           </div>
-          {portal.weeklyUpdate ? (
-            <p className="text-xs text-slate-300 dark:text-slate-300 light:text-slate-700 leading-relaxed whitespace-pre-wrap">
-              {portal.weeklyUpdate}
-            </p>
+        </section>
+
+        {/* Milestones timeline */}
+        <section id="milestones" className="scroll-mt-24">
+          <div className="flex items-end justify-between gap-3 mb-8">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.22em] text-[#6b655e]">Deliverables</p>
+              <p className="cp-serif text-4xl mt-2">Milestones</p>
+            </div>
+          </div>
+
+          {milestones.length === 0 ? (
+            <p className="rounded-[28px] border border-dashed border-[#d9d1c4] p-10 text-center text-[#6b655e]">No milestones have been added yet.</p>
           ) : (
-            <p className="text-xs text-slate-400 dark:text-slate-400 light:text-slate-500">
-              Your freelancer hasn't sent a progress update yet. It will appear here once published.
-            </p>
+            <ol className="relative ml-4">
+              <span className="absolute left-[19px] top-6 bottom-6 w-px bg-[#e8e2d9]" />
+              {milestones.map((m, i) => {
+                const overdue = isOverdueMilestone(m);
+                const meta = overdue ? OVERDUE_STYLE : MILESTONE_STATUS[m.status] || MILESTONE_STATUS.pending;
+                const history = m.changeRequests || [];
+                const busyApprove = busy === `approve:${m._id}`;
+                const busyChange = busy === `changes:${m._id}`;
+                return (
+                  <li key={m._id} className="cp-up relative pl-14 pb-8 last:pb-0" style={{ animationDelay: `${i * 90}ms` }}>
+                    <span
+                      className="absolute left-0 top-5 w-10 h-10 rounded-full flex items-center justify-center border-4 border-[#faf7f2] shadow-sm"
+                      style={{ background: meta.color }}
+                    >
+                      {m.status === "approved" ? (
+                        <Check className="w-4 h-4 text-[#ffffff]" strokeWidth={3} />
+                      ) : (
+                        <span className="text-xs font-semibold text-[#ffffff]">{i + 1}</span>
+                      )}
+                    </span>
+
+                    <div className={`rounded-[28px] bg-[#ffffff] border p-7 md:p-8 hover:shadow-[0_24px_50px_-30px_rgba(60,40,20,0.35)] transition-shadow duration-300 ${overdue ? "border-[#f2c9b8]" : "border-[#e8e2d9]"}`}>
+                      <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div className="min-w-0">
+                          <p className="cp-serif text-3xl leading-tight">{m.title}</p>
+                          {m.description && <p className="text-sm text-[#6b655e] mt-2 whitespace-pre-wrap leading-relaxed">{m.description}</p>}
+                        </div>
+                        <span className="shrink-0 inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1 rounded-full" style={{ background: meta.tint, color: meta.ink }}>
+                          <span className="w-1.5 h-1.5 rounded-full" style={{ background: meta.color }} />
+                          {overdue ? "Overdue" : meta.label}
+                        </span>
+                      </div>
+
+                      <div className="flex flex-wrap items-end justify-between gap-3 mt-5 text-xs">
+                        <span className={`inline-flex items-center gap-1.5 ${overdue ? "text-[#b4475a] font-semibold" : "text-[#6b655e]"}`}>
+                          {overdue && <AlertTriangle className="w-3.5 h-3.5" />}
+                          {m.dueDate ? `${overdue ? "Was due" : "Due"} ${formatDate(m.dueDate)}` : "No due date"}
+                        </span>
+                        <span className="cp-serif text-2xl text-[#1c1917] tabular-nums">{money(m.amount)}</span>
+                      </div>
+
+                      {history.length > 0 && (
+                        <div className="mt-5 space-y-2">
+                          {history.map((h, idx) => (
+                            <div key={idx} className="text-xs rounded-2xl bg-[#f9e1d6]/50 border border-[#f2c9b8] p-3.5 text-[#5b3a2c] leading-relaxed">
+                              <span className="font-semibold text-[#a4502d]">You asked for changes{h.createdAt ? ` · ${formatDate(h.createdAt)}` : ""}: </span>
+                              {h.comment}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {m.status === "in review" && (
+                        <div className="mt-6">
+                          {approvingId === m._id && (
+                            <div className="cp-fade mb-3 rounded-2xl bg-[#dcebe2]/60 border border-[#bfe3cd] p-4 flex flex-wrap items-center justify-between gap-3">
+                              <p className="flex items-center gap-2 text-sm text-[#2f4a3e]">
+                                <AlertTriangle className="w-4 h-4 shrink-0" />
+                                Approve "{m.title}"{m.amount ? ` (${money(m.amount)})` : ""}? This confirms you accept the work.
+                              </p>
+                              <div className="flex gap-2">
+                                <button onClick={() => approveMilestone(m)} disabled={busyApprove} className={btnPrimary}>
+                                  {busyApprove ? "Approving…" : "Yes, approve"}
+                                </button>
+                                <button onClick={() => setApprovingId(null)} className={btnGhost}>
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {changeFor === m._id ? (
+                            <div className="cp-fade space-y-3">
+                              <textarea
+                                value={changeText}
+                                onChange={(e) => setChangeText(e.target.value)}
+                                rows={3}
+                                autoFocus
+                                className={inputCls}
+                                placeholder="What should be changed?"
+                              />
+                              <div className="flex gap-2">
+                                <button onClick={() => sendChangeRequest(m)} disabled={busyChange} className={btnPrimary}>
+                                  {busyChange ? "Sending…" : "Send change request"}
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setChangeFor(null);
+                                    setChangeText("");
+                                  }}
+                                  className={btnGhost}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            approvingId !== m._id && (
+                              <div className="flex flex-wrap gap-2">
+                                <button onClick={() => setApprovingId(m._id)} disabled={Boolean(busy)} className={btnPrimary}>
+                                  <Check className="w-3.5 h-3.5" /> Approve
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setChangeFor(m._id);
+                                    setChangeText("");
+                                  }}
+                                  disabled={Boolean(busy)}
+                                  className={btnGhost}
+                                >
+                                  <Undo2 className="w-3.5 h-3.5" /> Request changes
+                                </button>
+                              </div>
+                            )
+                          )}
+                        </div>
+                      )}
+
+                      {m.status === "approved" && m.approvedAt && (
+                        <p className="mt-5 text-xs font-medium text-[#3f6e5b]">Approved on {formatDate(m.approvedAt)}</p>
+                      )}
+                      {!overdue && MILESTONE_STATUS[m.status]?.hint && m.status !== "in review" && m.status !== "approved" && (
+                        <p className="mt-5 text-xs text-[#a39c92]">{MILESTONE_STATUS[m.status].hint}</p>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
           )}
         </section>
 
-        {/* Milestones Approval Section */}
-        <section className="card p-6 space-y-4">
-          <h2 className="text-sm font-bold text-white dark:text-white light:text-slate-900 border-b border-slate-800 dark:border-slate-800 light:border-slate-200 pb-3">
-            Project Deliverables & Milestones
-          </h2>
-          {milestones.length === 0 ? (
-            <p className="text-xs text-slate-400 dark:text-slate-400 light:text-slate-500">No milestones have been added yet.</p>
+        {/* Invoices ledger */}
+        <section id="invoices" className="scroll-mt-24">
+          <div className="mb-8">
+            <p className="text-[11px] uppercase tracking-[0.22em] text-[#6b655e]">Billing</p>
+            <p className="cp-serif text-4xl mt-2">Invoices</p>
+          </div>
+          {invoices.length === 0 ? (
+            <p className="rounded-[28px] border border-dashed border-[#d9d1c4] p-10 text-center text-[#6b655e]">
+              No invoices yet. They appear here once the freelancer sends one.
+            </p>
           ) : (
-            <div className="space-y-4">
-              {milestones.map((m) => {
-                const meta = MILESTONE_STATUS[m.status] || MILESTONE_STATUS.pending;
-                const history = m.changeRequests || [];
+            <div className="rounded-[32px] bg-[#ffffff] border border-[#e8e2d9] divide-y divide-[#e8e2d9] overflow-hidden">
+              {invoices.map((invoice) => {
+                const overdue = isOverdueInvoice(invoice);
+                const st = overdue ? INVOICE_STATUS.overdue : INVOICE_STATUS[invoice.status] || INVOICE_STATUS.sent;
+                const busyPay = busy === `pay:${invoice._id}`;
                 return (
-                  <div
-                    key={m._id}
-                    className="rounded-2xl bg-slate-950/60 dark:bg-slate-950/60 light:bg-slate-50 border border-slate-800/80 dark:border-slate-800/80 light:border-slate-200 p-5 space-y-3"
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0 space-y-1">
-                        <div className="font-bold text-sm text-white dark:text-white light:text-slate-900">{m.title}</div>
-                        {m.description && (
-                          <div className="text-xs text-slate-400 dark:text-slate-400 light:text-slate-600 whitespace-pre-wrap leading-relaxed">
-                            {m.description}
-                          </div>
-                        )}
+                  <div key={invoice._id} className="p-6 md:p-7 flex flex-wrap items-center justify-between gap-5 hover:bg-[#faf7f2] transition-colors">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span className="text-[11px] font-mono text-[#6b655e] bg-[#f1ece4] px-2.5 py-1 rounded-full">{invoice.invoiceNumber || "Invoice"}</span>
+                        <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full capitalize" style={{ background: st.tint, color: st.ink }}>
+                          {st.label}
+                        </span>
                       </div>
-                      <Chip className={meta.chip}>{meta.label}</Chip>
+                      <p className="cp-serif text-3xl mt-3 tabular-nums">{money(invoice.amount, invoice.currency)}</p>
+                      <p className={`text-xs mt-1.5 flex items-center gap-1.5 ${overdue ? "text-[#b4475a] font-semibold" : "text-[#6b655e]"}`}>
+                        {overdue && <AlertTriangle className="w-3.5 h-3.5" />}
+                        {invoice.dueDate && invoice.status !== "paid" ? `${overdue ? "Was due" : "Due"} ${formatDate(invoice.dueDate)}` : ""}
+                        {invoice.paidAt ? `Paid ${formatDate(invoice.paidAt)}` : ""}
+                      </p>
                     </div>
-                    <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-800/60 dark:border-slate-800/60 light:border-slate-200">
-                      <span className="text-slate-400 dark:text-slate-400 light:text-slate-500">
-                        {m.dueDate ? `Due ${formatDate(m.dueDate)}` : "No due date"}
-                      </span>
-                      <span className="text-white dark:text-white light:text-slate-900 font-bold text-sm">{money(m.amount)}</span>
+                    <div className="flex gap-2">
+                      <button onClick={() => openBlob(`/client/projects/${projectId}/invoices/${invoice._id}/pdf`, `${invoice.invoiceNumber || "invoice"}.pdf`)} className={btnGhost}>
+                        <Download className="w-3.5 h-3.5" /> PDF
+                      </button>
+                      {invoice.status !== "paid" && (
+                        <button onClick={() => payInvoice(invoice)} disabled={busyPay} className={btnPrimary}>
+                          <CreditCard className="w-3.5 h-3.5" /> {busyPay ? "Opening…" : "Pay now"}
+                        </button>
+                      )}
                     </div>
-
-                    {history.length > 0 && (
-                      <div className="space-y-2 pt-1">
-                        {history.map((h, i) => (
-                          <div key={i} className="text-xs rounded-xl bg-orange-500/10 border border-orange-500/20 p-3 text-orange-200">
-                            <span className="text-orange-400 font-bold">You requested changes{h.createdAt ? ` · ${formatDate(h.createdAt)}` : ""}: </span>
-                            {h.comment}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {m.status === "in review" && (
-                      <div className="pt-2">
-                        {changeFor === m._id ? (
-                          <div className="space-y-3 bg-slate-900/90 p-4 rounded-xl border border-slate-800">
-                            <textarea
-                              value={changeText}
-                              onChange={(e) => setChangeText(e.target.value)}
-                              rows={3}
-                              autoFocus
-                              className="input text-xs"
-                              placeholder="What revisions or changes would you like?"
-                            />
-                            <div className="flex gap-2 justify-end">
-                              <button onClick={() => { setChangeFor(null); setChangeText(""); }} className="btn btn-secondary text-xs">
-                                Cancel
-                              </button>
-                              <button onClick={() => sendChangeRequest(m)} disabled={busy === `changes:${m._id}`} className="btn btn-primary text-xs px-4">
-                                {busy === `changes:${m._id}` ? "Sending…" : "Submit Request"}
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="flex gap-2">
-                            <button onClick={() => approveMilestone(m)} disabled={Boolean(busy)} className="btn btn-primary text-xs px-5">
-                              {busy === `approve:${m._id}` ? "Approving…" : "Approve Milestone"}
-                            </button>
-                            <button onClick={() => { setChangeFor(m._id); setChangeText(""); }} disabled={Boolean(busy)} className="btn btn-secondary text-xs">
-                              Request Changes
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    {m.status === "approved" && m.approvedAt && (
-                      <div className="text-xs text-emerald-400 font-medium flex items-center gap-1.5 pt-1">
-                        <CheckCircle2 className="w-4 h-4" /> Approved on {formatDate(m.approvedAt)}
-                      </div>
-                    )}
-                    {meta.hint && m.status !== "in review" && m.status !== "approved" && (
-                      <div className="text-xs text-slate-500">{meta.hint}</div>
-                    )}
                   </div>
                 );
               })}
@@ -481,77 +711,31 @@ export default function ClientPortal() {
           )}
         </section>
 
-        {/* Invoices Section */}
-        <section className="card p-6 space-y-4">
-          <h2 className="text-sm font-bold text-white dark:text-white light:text-slate-900 border-b border-slate-800 dark:border-slate-800 light:border-slate-200 pb-3">
-            Invoices & Payments
-          </h2>
-          {invoices.length === 0 ? (
-            <p className="text-xs text-slate-400 dark:text-slate-400 light:text-slate-500">No invoices generated yet.</p>
-          ) : (
-            <div className="space-y-3">
-              {invoices.map((invoice) => (
-                <div
-                  key={invoice._id}
-                  className="rounded-xl bg-slate-950/60 dark:bg-slate-950/60 light:bg-slate-50 border border-slate-800/80 dark:border-slate-800/80 light:border-slate-200 p-4 flex flex-wrap items-center justify-between gap-4"
-                >
-                  <div className="space-y-1">
-                    <div className="font-bold text-sm text-white dark:text-white light:text-slate-900 flex items-center gap-2">
-                      {invoice.invoiceNumber || "Invoice"}
-                      <Chip className={INVOICE_STATUS[invoice.status] || INVOICE_STATUS.sent}>{invoice.status}</Chip>
-                    </div>
-                    <div className="text-xs text-slate-400 dark:text-slate-400 light:text-slate-500 font-medium">
-                      {money(invoice.amount, invoice.currency)}
-                      {invoice.dueDate && invoice.status !== "paid" ? ` · due ${formatDate(invoice.dueDate)}` : ""}
-                      {invoice.paidAt ? ` · paid ${formatDate(invoice.paidAt)}` : ""}
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => openBlob(`/client/projects/${projectId}/invoices/${invoice._id}/pdf`, `${invoice.invoiceNumber || "invoice"}.pdf`)}
-                      className="btn btn-secondary text-xs px-3 py-1.5"
-                    >
-                      <Download className="w-3.5 h-3.5" /> PDF
-                    </button>
-                    {invoice.status !== "paid" && (
-                      <button onClick={() => payInvoice(invoice)} disabled={busy === `pay:${invoice._id}`} className="btn btn-primary text-xs px-4 py-1.5">
-                        <CreditCard className="w-3.5 h-3.5" />
-                        <span>{busy === `pay:${invoice._id}` ? "Opening…" : "Pay Now"}</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* Shared Files & Notes Grid */}
-        <section className="grid md:grid-cols-2 gap-5">
-          <div className="card p-6 space-y-3">
-            <h2 className="text-sm font-bold text-white dark:text-white light:text-slate-900 border-b border-slate-800 dark:border-slate-800 light:border-slate-200 pb-2">
-              Shared Project Deliverables
-            </h2>
+        {/* Files + notes */}
+        <section className="grid md:grid-cols-2 gap-8">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.22em] text-[#6b655e]">Shared files</p>
+            <p className="cp-serif text-3xl mt-2 mb-6">Documents</p>
             {files.length === 0 ? (
-              <p className="text-xs text-slate-400 dark:text-slate-400 light:text-slate-500">No shared files available.</p>
+              <p className="rounded-[24px] border border-dashed border-[#d9d1c4] p-8 text-center text-sm text-[#6b655e]">No files have been shared with you yet.</p>
             ) : (
-              <ul className="space-y-2">
+              <ul className="space-y-3">
                 {files.map((file) => (
-                  <li
-                    key={file._id}
-                    className="flex items-center justify-between gap-3 rounded-xl bg-slate-950/60 dark:bg-slate-950/60 light:bg-slate-50 border border-slate-800/80 dark:border-slate-800/80 light:border-slate-200 p-3"
-                  >
-                    <div className="min-w-0">
-                      <div className="text-xs font-bold text-white dark:text-white light:text-slate-900 truncate">{file.originalName}</div>
-                      <div className="text-[10px] text-slate-400 dark:text-slate-400 light:text-slate-500">
-                        v{file.version || 1} {file.createdAt ? ` · ${formatDate(file.createdAt)}` : ""}
+                  <li key={file._id} className="flex items-center justify-between gap-3 rounded-[22px] bg-[#ffffff] border border-[#e8e2d9] px-5 py-4 hover:shadow-[0_18px_40px_-28px_rgba(60,40,20,0.35)] transition-shadow">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="w-10 h-10 rounded-xl bg-[#f6dccb] flex items-center justify-center shrink-0">
+                        <FileText className="w-4 h-4 text-[#a4502d]" />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold truncate">{file.originalName}</p>
+                        <p className="text-[11px] text-[#a39c92]">
+                          v{file.version || 1}
+                          {file.createdAt ? ` · ${formatDate(file.createdAt)}` : ""}
+                        </p>
                       </div>
                     </div>
-                    <button
-                      onClick={() => openBlob(`/client/projects/${projectId}/files/${file._id}/download`, file.originalName)}
-                      className="btn btn-secondary text-xs py-1 px-3"
-                    >
-                      Download
+                    <button onClick={() => openBlob(`/client/projects/${projectId}/files/${file._id}/download`, file.originalName)} className={btnGhost}>
+                      Open
                     </button>
                   </li>
                 ))}
@@ -559,82 +743,136 @@ export default function ClientPortal() {
             )}
           </div>
 
-          <div className="card p-6 space-y-3">
-            <h2 className="text-sm font-bold text-white dark:text-white light:text-slate-900 border-b border-slate-800 dark:border-slate-800 light:border-slate-200 pb-2">
-              Shared Notes & Specs
-            </h2>
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.22em] text-[#6b655e]">Shared notes</p>
+            <p className="cp-serif text-3xl mt-2 mb-6">Notes</p>
             {notes.length === 0 ? (
-              <p className="text-xs text-slate-400 dark:text-slate-400 light:text-slate-500">No shared notes published.</p>
+              <p className="rounded-[24px] border border-dashed border-[#d9d1c4] p-8 text-center text-sm text-[#6b655e]">No notes have been shared with you yet.</p>
             ) : (
-              <div className="space-y-2">
-                {notes.map((note) => (
-                  <details
-                    key={note._id}
-                    className="rounded-xl bg-slate-950/60 dark:bg-slate-950/60 light:bg-slate-50 border border-slate-800/80 dark:border-slate-800/80 light:border-slate-200 p-3 group"
-                  >
-                    <summary className="cursor-pointer text-xs font-bold text-white dark:text-white light:text-slate-900">{note.title}</summary>
-                    <div className="text-xs text-slate-300 dark:text-slate-300 light:text-slate-700 whitespace-pre-wrap mt-2 leading-relaxed">
-                      {note.content}
-                    </div>
+              <div className="space-y-3">
+                {visibleNotes.map((note) => (
+                  <details key={note._id} className="group rounded-[22px] bg-[#ffffff] border border-[#e8e2d9] px-5 py-4 open:shadow-[0_18px_40px_-28px_rgba(60,40,20,0.35)] transition-shadow">
+                    <summary className="cursor-pointer list-none flex items-center justify-between gap-3">
+                      <span className="cp-serif text-xl">{note.title}</span>
+                      <ChevronDown className="w-4 h-4 text-[#6b655e] group-open:rotate-180 transition-transform" />
+                    </summary>
+                    <div className="text-sm text-[#3a342e] whitespace-pre-wrap mt-3 leading-relaxed">{note.content}</div>
                   </details>
                 ))}
+                {notes.length > 3 && (
+                  <button onClick={() => setShowAllNotes((s) => !s)} className="text-xs font-semibold text-[#c4673f] hover:text-[#1c1917] transition-colors">
+                    {showAllNotes ? "Show fewer" : `Show all ${notes.length} notes`}
+                  </button>
+                )}
               </div>
             )}
           </div>
         </section>
 
-        {/* Messaging Section */}
-        <section className="card p-6 space-y-4">
-          <h2 className="text-sm font-bold text-white dark:text-white light:text-slate-900 flex items-center gap-2 border-b border-slate-800 dark:border-slate-800 light:border-slate-200 pb-3">
-            <MessageSquare className="w-4 h-4 text-indigo-400" />
-            <span>Direct Feedback & Discussion</span>
-          </h2>
-          {comments.length === 0 ? (
-            <p className="text-xs text-slate-400 dark:text-slate-400 light:text-slate-500">No messages yet. Ask questions or leave feedback below.</p>
-          ) : (
-            <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
-              {comments.map((item) => (
-                <div
-                  key={item._id}
-                  className={`rounded-2xl border p-3.5 text-xs space-y-1 ${
-                    item.fromClient
-                      ? "bg-indigo-500/10 border-indigo-500/30 ml-6"
-                      : "bg-slate-950/60 dark:bg-slate-950/60 light:bg-slate-50 border-slate-800/80 mr-6"
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-bold text-white dark:text-white light:text-slate-900">
-                      {item.fromClient ? "You" : item.authorName || item.author?.name || "Freelancer"}
-                    </span>
-                    {item.createdAt && <span className="text-[10px] text-slate-400">{formatDate(item.createdAt)}</span>}
+        {/* Conversation */}
+        <section>
+          <p className="text-[11px] uppercase tracking-[0.22em] text-[#6b655e]">Conversation</p>
+          <p className="cp-serif text-4xl mt-2 mb-8">Messages</p>
+
+          <div className="rounded-[32px] bg-[#ffffff] border border-[#e8e2d9] p-6 md:p-8 shadow-[0_30px_70px_-45px_rgba(60,40,20,0.35)]">
+            {comments.length === 0 ? (
+              <p className="text-sm text-[#6b655e] text-center py-8 flex flex-col items-center gap-3">
+                <MessageSquare className="w-6 h-6 text-[#c9c1b5]" />
+                No messages yet. Questions and feedback go here.
+              </p>
+            ) : (
+              <div className="space-y-4 max-h-[28rem] overflow-y-auto pr-1">
+                {comments.map((item) => (
+                  <div key={item._id} className={`flex ${item.fromClient ? "justify-end" : "justify-start"}`}>
+                    <div className={`max-w-[80%] rounded-[22px] px-5 py-3.5 ${item.fromClient ? "bg-[#f6dccb] rounded-br-md" : "bg-[#faf7f2] border border-[#e8e2d9] rounded-bl-md"}`}>
+                      <div className="flex items-center gap-3 mb-1.5">
+                        <span className="text-xs font-semibold">{item.fromClient ? "You" : item.authorName || item.author?.name || "Freelancer"}</span>
+                        {item.createdAt && <span className="text-[10px] text-[#6b655e]">{formatDate(item.createdAt)}</span>}
+                      </div>
+                      {item.content && <p className="text-sm text-[#2b2620] whitespace-pre-wrap leading-relaxed">{item.content}</p>}
+                      {item.attachments?.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {item.attachments.map((att) => (
+                            <button
+                              key={att.index}
+                              type="button"
+                              onClick={() => openBlob(`/client/projects/${projectId}/comments/${item._id}/attachments/${att.index}`, att.originalName)}
+                              className="inline-flex items-center gap-2 text-xs font-semibold bg-[#ffffff] border border-[#e8e2d9] rounded-xl px-3 py-2 hover:border-[#c4673f] transition-colors"
+                            >
+                              <Paperclip className="w-3.5 h-3.5 text-[#a4502d]" />
+                              <span className="truncate max-w-[14rem]">{att.originalName}</span>
+                              <span className="text-[10px] text-[#a39c92]">{sizeLabel(att.size)}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-slate-300 dark:text-slate-300 light:text-slate-700 leading-relaxed whitespace-pre-wrap">
-                    {item.content}
+                ))}
+              </div>
+            )}
+
+            {pendingFile && (
+              <div className="cp-fade mt-6 flex items-center justify-between gap-3 rounded-2xl bg-[#faf7f2] border border-[#e8e2d9] px-4 py-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="w-9 h-9 rounded-xl bg-[#f6dccb] flex items-center justify-center shrink-0">
+                    <FileText className="w-4 h-4 text-[#a4502d]" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold truncate">{pendingFile.name}</p>
+                    <p className="text-[11px] text-[#a39c92]">{sizeLabel(pendingFile.size)} · will be sent with your message</p>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-          <form onSubmit={submitComment} className="space-y-3 pt-1">
-            <textarea
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              rows={3}
-              className="input text-xs"
-              placeholder="Write a message to your freelancer…"
-            />
-            <div className="flex justify-end">
-              <button disabled={busy === "comment" || !comment.trim()} className="btn btn-primary text-xs px-5 py-2">
-                <Send className="w-3.5 h-3.5" />
-                <span>{busy === "comment" ? "Sending…" : "Send Message"}</span>
+                <button
+                  type="button"
+                  onClick={() => setPendingFile(null)}
+                  className="w-8 h-8 rounded-full hover:bg-[#f1ece4] flex items-center justify-center shrink-0"
+                  aria-label="Remove file"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            <form onSubmit={submitComment} className="mt-4 flex items-end gap-3 rounded-[24px] bg-[#faf7f2] border border-[#e8e2d9] p-3 focus-within:border-[#c4673f] focus-within:ring-2 focus-within:ring-[#f6dccb] transition-all">
+              <input ref={fileInputRef} type="file" className="hidden" onChange={pickFile} />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={busy === "comment"}
+                className="w-9 h-9 rounded-full bg-[#ffffff] border border-[#e8e2d9] flex items-center justify-center shrink-0 mb-1 hover:border-[#c4673f] hover:text-[#a4502d] transition-colors disabled:opacity-50"
+                aria-label="Attach a file"
+                title="Attach a screenshot or file"
+              >
+                <Paperclip className="w-4 h-4" />
               </button>
-            </div>
-          </form>
+              <textarea
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    if (!sendDisabled) submitComment(e);
+                  }
+                }}
+                rows={1}
+                className="flex-1 bg-transparent resize-none text-sm placeholder-[#a39c92] focus:outline-none py-2 max-h-32"
+                placeholder={pendingFile ? "Add a message about this file (optional)…" : "Write a message to your freelancer…"}
+              />
+              <button
+                type="submit"
+                disabled={sendDisabled}
+                className="w-11 h-11 rounded-full bg-[#1c1917] text-[#faf7f2] flex items-center justify-center hover:bg-[#c4673f] transition-colors disabled:opacity-40 shrink-0"
+                aria-label="Send message"
+              >
+                <Send className="w-4 h-4" />
+              </button>
+            </form>
+            <p className="mt-3 text-[11px] text-[#a39c92] px-2">Attach a screenshot or document up to 10MB. Your team can open it from the discussion.</p>
+          </div>
         </section>
 
-        <footer className="text-center text-xs text-slate-500 dark:text-slate-500 light:text-slate-400 pt-4 pb-6 font-medium">
-          Encrypted Client Portal · Powered by ClientSphere
-        </footer>
+        <footer className="text-center text-xs text-[#a39c92] pt-6">Secure client portal · Powered by ClientSphere</footer>
       </main>
     </div>
   );
