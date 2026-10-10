@@ -239,10 +239,9 @@ Pull requests are welcome. For larger changes, open an issue first so we can tal
 2. Commit with a clear message: `git commit -m "feat(scope): what changed"`
 3. Push and open a pull request.
 
-## License
+## Built with care
 
-Add your license here (for example MIT).
-
+ClientSphere started from a simple frustration: good freelancers spend more time chasing updates than doing the work they were hired for. It's an attempt to give that time back, one approval and one clear update at a time.
 ---
 
 <div align="center">
