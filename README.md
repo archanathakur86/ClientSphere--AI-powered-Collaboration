@@ -125,7 +125,7 @@ flowchart LR
 |---|---|
 | Frontend | React 18, Vite, React Router, Axios, Recharts, react-markdown, react-hot-toast, lucide-react, socket.io-client |
 | Backend | Node.js, Express, Mongoose (MongoDB), Socket.io, Zod validation, express-rate-limit, helmet |
-| AI | Groq API (Llama models), local sentence embeddings via `@xenova/transformers` |
+| AI | Groq API , local sentence embeddings via `@xenova/transformers` |
 | Payments | Stripe Checkout and webhooks |
 | Storage | Cloudinary (uploads and PDFs), multer for multipart |
 | Email | Nodemailer over SMTP (works with Resend, Brevo, or any SMTP provider) |
