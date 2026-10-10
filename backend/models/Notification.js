@@ -6,7 +6,7 @@ const notificationSchema = new mongoose.Schema(
     project: { type: mongoose.Schema.Types.ObjectId, ref: "Project", required: true },
     type: {
       type: String,
-      enum: ["milestone_submitted", "milestone_approved", "milestone_changes_requested", "new_comment", "invoice_paid", "invoice_sent", "invoice_overdue", "task_assigned", "member_added"],
+      enum: ["milestone_submitted", "milestone_approved", "milestone_changes_requested", "new_comment", "invoice_paid", "invoice_sent", "invoice_overdue", "task_assigned", "member_added", "mention"],
       required: true,
     },
     title: { type: String, required: true },

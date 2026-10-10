@@ -2,7 +2,8 @@ import asyncHandler from "express-async-handler";
 import Comment from "../models/Comment.js";
 import Milestone from "../models/Milestone.js";
 import { loadProjectForUser, getUserRole } from "../middleware/projectAccess.js";
-import { createProjectNotifications } from "../services/notificationService.js";
+import { createProjectNotifications, createNotification } from "../services/notificationService.js";
+import User from "../models/User.js";
 import { fetchStoredFile, contentTypeFor, uploadBufferToCloudinary, getExtension } from "../services/uploadService.js";
 import { detectScopeCreep, generateEmbedding } from "../services/groqService.js";
 
@@ -72,6 +73,24 @@ export const addComment = asyncHandler(async (req, res) => {
     scopeReason: scopeCheck?.reason || "",
     scopeSuggestedReply: scopeCheck?.suggestedReply || "",
   });
+    // @mentions: notify each teammate who was tagged by email (not the author, and only people on the project).
+  const mentionedEmails = [...new Set([...commentText.matchAll(/@([\w.+-]+@[\w.-]+\.\w+)/g)].map((m) => m[1].toLowerCase()))];
+  if (mentionedEmails.length) {
+    const teamIds = new Set([req.project.owner.toString(), ...req.project.members.map((m) => m.user.toString())]);
+    const mentioned = await User.find({ email: { $in: mentionedEmails } }).select("name email");
+    for (const person of mentioned) {
+      const id = person._id.toString();
+      if (!teamIds.has(id) || id === req.user._id.toString()) continue;
+      await createNotification({
+        recipientKey: `user:${id}`,
+        project: req.project._id,
+        type: "mention",
+        title: `${req.user.name} mentioned you`,
+        message: `In "${req.project.name}": ${commentText.slice(0, 140)}`,
+        metadata: { projectId: req.project._id, commentId: comment._id },
+      });
+    }
+  }
 
   // Who hears about it: the freelancer when a client writes; the client only when a
   // staff comment has been shared. Internal discussion never reaches the client.

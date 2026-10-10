@@ -7,6 +7,7 @@ import { useRealtime } from "../hooks/useRealtime.js";
 import NotificationBell from "../components/NotificationBell.jsx";
 import OnlineUsersPill from "../components/OnlineUsersPill.jsx";
 import InvoiceTab from "../components/InvoiceTab.jsx";
+import { ArrowLeft, CheckCircle2, StickyNote, FolderOpen, ListChecks, Receipt, UserCheck, Search as SearchIcon, BarChart3, Sparkles, Users, MessageSquare } from "lucide-react";
 
 import NoteEditor from "../components/NoteEditor.jsx";
 import NotesList from "../components/NotesList.jsx";
@@ -22,50 +23,34 @@ import CommentsPanel from "../components/CommentsPanel.jsx";
 import MilestonesTab from "../components/MilestonesTab.jsx";
 import ClientAccessPanel from "../components/ClientAccessPanel.jsx";
 
-import {
-  ArrowLeft,
-  CheckCircle2,
-  FileText,
-  Folder,
-  CheckSquare,
-  DollarSign,
-  UserCheck,
-  Search,
-  BarChart3,
-  Sparkles,
-  Users,
-  MessageSquare,
-  ChevronRight,
-  ExternalLink,
-} from "lucide-react";
-
-const TABS = [
-  "Milestones",
-  "Notes",
-  "Files",
-  "Tasks",
-  "Invoices",
-  "Client",
-  "Search",
-  "Analytics",
-  "AI Reports",
-  "Members",
-  "Discussion",
-];
+const TABS = ["Milestones", "Notes", "Files", "Tasks", "Invoices", "Client", "Search", "Analytics", "AI Reports", "Members", "Discussion"];
 
 const TAB_ICONS = {
   Milestones: CheckCircle2,
-  Notes: FileText,
-  Files: Folder,
-  Tasks: CheckSquare,
-  Invoices: DollarSign,
+  Notes: StickyNote,
+  Files: FolderOpen,
+  Tasks: ListChecks,
+  Invoices: Receipt,
   Client: UserCheck,
-  Search: Search,
+  Search: SearchIcon,
   Analytics: BarChart3,
   "AI Reports": Sparkles,
   Members: Users,
   Discussion: MessageSquare,
 };
+
+const PP_STYLES = `
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;1,9..144,400;1,9..144,500&display=swap');
+
+.pp-serif { font-family: 'Fraunces', Georgia, serif; font-weight: 500; letter-spacing: -0.03em; }
+
+@keyframes ppIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.pp-hero { animation: ppIn 0.7s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+`;
 
 export default function ProjectPage() {
   const { projectId } = useParams();
@@ -124,24 +109,13 @@ export default function ProjectPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [realtime.socket]);
 
-  if (loading)
-    return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center text-slate-400">
-        <div className="w-10 h-10 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-        <p className="text-sm font-medium">Loading workspace project details...</p>
-      </div>
-    );
-
+  if (loading) return <div className="max-w-5xl mx-auto px-4 py-10 text-slate-400">Loading project...</div>;
   if (!project) {
     return (
-      <div className="max-w-xl mx-auto px-4 py-20 text-center space-y-4">
-        <div className="card p-8 space-y-4">
-          <h1 className="text-xl font-bold text-white">We couldn't open this project</h1>
-          <p className="text-xs text-slate-400">It may have been removed, or you may not have access to it.</p>
-          <Link to="/dashboard" className="btn btn-primary text-xs inline-flex">
-            Back to your projects
-          </Link>
-        </div>
+      <div className="max-w-5xl mx-auto px-4 py-16 text-center space-y-3">
+        <h1 className="text-xl font-bold text-white">We couldn't open this project</h1>
+        <p className="text-sm text-slate-400">It may have been removed, or you may not have access to it.</p>
+        <Link to="/dashboard" className="inline-block text-indigo-300 hover:text-white text-sm">Back to your projects</Link>
       </div>
     );
   }
@@ -156,199 +130,202 @@ export default function ProjectPage() {
   const visibleTabs = TABS.filter((t) => (t !== "Invoices" || canSeeInvoices) && (t !== "Client" || isOwner));
   const refreshProject = () => loadAll({ silent: true });
 
+  const clientName = project.clientName && project.clientName !== "Client" ? project.clientName : "";
+
   return (
-    <div className="min-h-screen bg-slate-950 dark:bg-slate-950 light:bg-slate-50 text-slate-100 dark:text-slate-100 light:text-slate-900 pb-20">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-6">
-        {/* Back Link */}
-        <Link
-          to="/dashboard"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-400 dark:text-slate-400 light:text-slate-600 hover:text-white dark:hover:text-white light:hover:text-slate-900 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Back to Dashboard</span>
-        </Link>
+    <div className="max-w-5xl mx-auto px-4 pt-6 pb-8">
+      <style>{PP_STYLES}</style>
 
-        {/* Project Header Banner */}
-        <div className="card bg-slate-900/90 dark:bg-slate-900/90 light:bg-white p-6 rounded-2xl border-slate-800 dark:border-slate-800 light:border-slate-200 shadow-md">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="space-y-1.5 max-w-2xl">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-500/10 text-indigo-400 dark:text-indigo-400 light:text-indigo-600 border border-indigo-500/20">
-                  {project.clientName || "Internal Project"}
-                </span>
-                {project.clientEmail && (
-                  <span className="text-xs text-slate-400 dark:text-slate-400 light:text-slate-500">
-                    ({project.clientEmail})
-                  </span>
-                )}
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-white dark:text-white light:text-slate-900 tracking-tight">
-                {project.name}
-              </h1>
-              <p className="text-xs sm:text-sm text-slate-400 dark:text-slate-400 light:text-slate-600 leading-relaxed">
-                {project.description || "No description specified."}
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3 flex-wrap justify-end">
-              <OnlineUsersPill users={realtime.onlineUsers} />
-              <NotificationBell
-                notifications={realtime.notifications}
-                unreadCount={realtime.unreadCount}
-                onMarkRead={realtime.markNotificationRead}
-                onMarkAllRead={realtime.markAllRead}
-              />
-              <HealthBadge projectId={projectId} refreshKey={healthRefreshKey} />
-            </div>
-          </div>
+      {/* Hero */}
+      <div className="pp-hero relative z-30 rounded-[36px] bg-[#ffffff] border border-[#e8e2d9] p-7 md:p-10 shadow-[0_30px_70px_-45px_rgba(60,40,20,0.35)]">
+        {/* Decorative glows live in their own clipped layer, so dropdowns can open outside the card */}
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden rounded-[36px]">
+          <div className="absolute -top-28 -right-24 w-96 h-96 rounded-full" style={{ background: "radial-gradient(circle, #f6dccb 0%, transparent 70%)" }} />
+          <div className="absolute -bottom-32 -left-20 w-80 h-80 rounded-full" style={{ background: "radial-gradient(circle, #dcebe2 0%, transparent 70%)" }} />
         </div>
 
-        {/* Dynamic Navigation Tabs Bar */}
-        <div className="flex gap-1.5 p-1.5 bg-slate-900/80 dark:bg-slate-900/80 light:bg-slate-200/80 border border-slate-800/80 dark:border-slate-800/80 light:border-slate-300 rounded-2xl overflow-x-auto no-scrollbar shadow-inner">
+        <div className="relative flex flex-wrap items-start justify-between gap-6">
+          <div className="min-w-0 max-w-2xl">
+            <Link
+              to="/dashboard"
+              className="inline-flex items-center gap-2 text-xs font-semibold text-[#6b655e] hover:text-[#1c1917] bg-[#faf7f2] border border-[#e8e2d9] px-3.5 py-1.5 rounded-full transition-colors"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" /> All projects
+            </Link>
+
+            <p className="mt-8 text-[11px] uppercase tracking-[0.24em] text-[#c4673f]">Project</p>
+            <h1 className="pp-serif text-5xl md:text-6xl mt-2 leading-[1.02]">{project.name}</h1>
+            <p className="mt-4 text-[15px] text-[#6b655e] leading-relaxed">{project.description || "No description yet."}</p>
+
+            {clientName && (
+              <div className="mt-6 inline-flex items-center gap-3 pl-1.5 pr-4 py-1.5 rounded-full bg-[#dcebe2]/60 border border-[#bfe3cd]">
+                <span className="w-8 h-8 rounded-full bg-[#ffffff] text-[#3f6e5b] pp-serif text-sm flex items-center justify-center">
+                  {clientName.charAt(0).toUpperCase()}
+                </span>
+                <span className="text-xs font-semibold text-[#2f4a3e]">
+                  {clientName}
+                  {project.clientEmail ? <span className="font-normal text-[#4f6e61]"> · {project.clientEmail}</span> : null}
+                </span>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-3 flex-wrap justify-end">
+            <OnlineUsersPill users={realtime.onlineUsers} />
+            <NotificationBell
+              notifications={realtime.notifications}
+              unreadCount={realtime.unreadCount}
+              onMarkRead={realtime.markNotificationRead}
+              onMarkAllRead={realtime.markAllRead}
+            />
+            <HealthBadge projectId={projectId} refreshKey={healthRefreshKey} />
+          </div>
+        </div>
+      </div>
+
+      {/* Tab dock: wraps onto more lines instead of scrolling, so no tab is cut off */}
+      <nav className="relative z-10 mt-6" aria-label="Project sections">
+        <div className="flex flex-wrap justify-center gap-1.5 p-2 rounded-[28px] bg-[#ffffff] border border-[#e8e2d9] shadow-[0_20px_50px_-30px_rgba(60,40,20,0.35)]">
           {visibleTabs.map((t) => {
             const Icon = TAB_ICONS[t];
-            const isActive = tab === t;
+            const active = tab === t;
             return (
               <button
                 key={t}
                 onClick={() => setTab(t)}
-                className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-xl whitespace-nowrap transition-all duration-150 ${
-                  isActive
-                    ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30"
-                    : "text-slate-400 dark:text-slate-400 light:text-slate-700 hover:text-white dark:hover:text-white light:hover:text-slate-900 hover:bg-slate-800/60 dark:hover:bg-slate-800/60 light:hover:bg-slate-100"
+                aria-current={active ? "page" : undefined}
+                className={`group inline-flex items-center gap-2 px-3.5 py-2 rounded-full text-[13px] font-semibold whitespace-nowrap transition-all duration-300 ${
+                  active
+                    ? "bg-[#1c1917] text-[#faf7f2] shadow-[0_10px_24px_-12px_rgba(28,25,23,0.6)]"
+                    : "text-[#6b655e] hover:bg-[#faf7f2] hover:text-[#1c1917]"
                 }`}
               >
-                {Icon && <Icon className="w-3.5 h-3.5" />}
-                <span>{t}</span>
+                {Icon && <Icon className={`w-4 h-4 transition-transform duration-300 ${active ? "" : "group-hover:-translate-y-0.5"}`} />}
+                {t}
               </button>
             );
           })}
         </div>
+      </nav>
 
-        {/* Tab Contents */}
-        <div className="pt-2">
-          {tab === "Milestones" && (
-            <MilestonesTab
+      <div className="mt-8">
+        {tab === "Milestones" && (
+          <MilestonesTab
+            projectId={projectId}
+            project={project}
+            canEdit={canEdit}
+            refreshKey={dataVersion}
+            onChanged={() => {
+              bumpHealth();
+              refreshProject();
+            }}
+            onGoToClient={isOwner ? () => setTab("Client") : undefined}
+          />
+        )}
+
+        {tab === "Client" && isOwner && <ClientAccessPanel project={project} projectId={projectId} onProjectChanged={refreshProject} />}
+
+        {tab === "Notes" && (
+          <div className="space-y-4">
+            <NoteEditor
               projectId={projectId}
-              project={project}
-              canEdit={canEdit}
-              refreshKey={dataVersion}
-              onChanged={() => {
+              onCreated={(n) => {
+                setNotes((prev) => [n, ...prev]);
                 bumpHealth();
-                refreshProject();
-              }}
-              onGoToClient={isOwner ? () => setTab("Client") : undefined}
-            />
-          )}
-
-          {tab === "Client" && isOwner && (
-            <ClientAccessPanel project={project} projectId={projectId} onProjectChanged={refreshProject} />
-          )}
-
-          {tab === "Notes" && (
-            <div className="space-y-6">
-              <NoteEditor
-                projectId={projectId}
-                onCreated={(n) => {
-                  setNotes((prev) => [n, ...prev]);
-                  bumpHealth();
-                }}
-              />
-              <NotesList
-                notes={notes}
-                canEdit={canEdit}
-                onDeleted={(id) => {
-                  setNotes((prev) => prev.filter((n) => n._id !== id));
-                  bumpHealth();
-                }}
-                onUpdated={(updated) => {
-                  setNotes((prev) => prev.map((n) => (n._id === updated._id ? updated : n)));
-                  bumpHealth();
-                }}
-              />
-            </div>
-          )}
-
-          {tab === "Files" && (
-            <div className="space-y-6">
-              <FileUpload
-                projectId={projectId}
-                onUploaded={(f) => {
-                  setFiles((prev) => [f, ...prev]);
-                  bumpHealth();
-                }}
-              />
-              <FileList
-                files={files}
-                projectId={projectId}
-                canEdit={canEdit}
-                onUpdated={(updated) => setFiles((prev) => prev.map((f) => (f._id === updated._id ? updated : f)))}
-                onDeleted={(id) => {
-                  setFiles((prev) => prev.filter((f) => f._id !== id));
-                  bumpHealth();
-                }}
-              />
-            </div>
-          )}
-
-          {tab === "Tasks" && <TaskList projectId={projectId} />}
-
-          {tab === "Invoices" && (
-            <InvoiceTab
-              invoices={invoices}
-              onSend={async (invoiceId) => {
-                try {
-                  await api.post(`/invoices/${invoiceId}/send`);
-                  toast.success("Invoice sent to the client");
-                  refreshProject();
-                } catch (err) {
-                  toast.error(err.response?.data?.message || "Couldn't send the invoice");
-                }
-              }}
-              onSave={async (invoiceId, patch) => {
-                try {
-                  await api.patch(`/invoices/${invoiceId}`, patch);
-                  toast.success("Invoice updated");
-                  refreshProject();
-                  return true;
-                } catch (err) {
-                  toast.error(err.response?.data?.message || "Couldn't update the invoice");
-                  return false;
-                }
-              }}
-              onDownload={async (invoiceId) => {
-                const res = await api.get(`/invoices/${invoiceId}/pdf`, { responseType: "blob" });
-                const url = URL.createObjectURL(res.data);
-                const link = document.createElement("a");
-                link.href = url;
-                link.download = `invoice-${invoiceId}.pdf`;
-                document.body.appendChild(link);
-                link.click();
-                link.remove();
-                setTimeout(() => URL.revokeObjectURL(url), 60000);
               }}
             />
-          )}
+            <NotesList
+              notes={notes}
+              canEdit={canEdit}
+              onDeleted={(id) => {
+                setNotes((prev) => prev.filter((n) => n._id !== id));
+                bumpHealth();
+              }}
+              onUpdated={(updated) => {
+                setNotes((prev) => prev.map((n) => (n._id === updated._id ? updated : n)));
+                bumpHealth();
+              }}
+            />
+          </div>
+        )}
 
-          {tab === "Search" && <SearchBar projectId={projectId} />}
-
-          {tab === "Analytics" && <AnalyticsPanel projectId={projectId} />}
-
-          {tab === "AI Reports" && (
-            <ReportGenerator
+        {tab === "Files" && (
+          <div className="space-y-4">
+            <FileUpload
               projectId={projectId}
-              project={project}
-              initialReadme={project.readme}
-              onReadmeGenerated={(readme) => setProject((p) => ({ ...p, readme }))}
+              onUploaded={(f) => {
+                setFiles((prev) => [f, ...prev]);
+                bumpHealth();
+              }}
             />
-          )}
+            <FileList
+              files={files}
+              projectId={projectId}
+              canEdit={canEdit}
+              onUpdated={(updated) => setFiles((prev) => prev.map((f) => (f._id === updated._id ? updated : f)))}
+              onDeleted={(id) => {
+                setFiles((prev) => prev.filter((f) => f._id !== id));
+                bumpHealth();
+              }}
+            />
+          </div>
+        )}
 
-          {tab === "Members" && (
-            <MembersPanel project={project} currentUserId={user?._id} onUpdated={(p) => setProject(p)} />
-          )}
+        {tab === "Tasks" && <TaskList projectId={projectId} />}
 
-          {tab === "Discussion" && <CommentsPanel projectId={projectId} project={project} canShare={canEdit} />}
-        </div>
+        {tab === "Invoices" && (
+          <InvoiceTab
+            invoices={invoices}
+            onSend={async (invoiceId) => {
+              try {
+                await api.post(`/invoices/${invoiceId}/send`);
+                toast.success("Invoice sent to the client");
+                refreshProject();
+              } catch (err) {
+                toast.error(err.response?.data?.message || "Couldn't send the invoice");
+              }
+            }}
+            onSave={async (invoiceId, patch) => {
+              try {
+                await api.patch(`/invoices/${invoiceId}`, patch);
+                toast.success("Invoice updated");
+                refreshProject();
+                return true;
+              } catch (err) {
+                toast.error(err.response?.data?.message || "Couldn't update the invoice");
+                return false;
+              }
+            }}
+            onDownload={async (invoiceId) => {
+              const res = await api.get(`/invoices/${invoiceId}/pdf`, { responseType: "blob" });
+              const url = URL.createObjectURL(res.data);
+              const link = document.createElement("a");
+              link.href = url;
+              link.download = `invoice-${invoiceId}.pdf`;
+              document.body.appendChild(link);
+              link.click();
+              link.remove();
+              setTimeout(() => URL.revokeObjectURL(url), 60000);
+            }}
+          />
+        )}
+
+        {tab === "Search" && <SearchBar projectId={projectId} />}
+
+        {tab === "Analytics" && <AnalyticsPanel projectId={projectId} />}
+
+        {tab === "AI Reports" && (
+          <ReportGenerator
+            projectId={projectId}
+            project={project}
+            initialReadme={project.readme}
+            onReadmeGenerated={(readme) => setProject((p) => ({ ...p, readme }))}
+          />
+        )}
+
+        {tab === "Members" && <MembersPanel project={project} currentUserId={user?._id} onUpdated={(p) => setProject(p)} />}
+
+        {tab === "Discussion" && <CommentsPanel projectId={projectId} project={project} canShare={canEdit} />}
       </div>
     </div>
   );
