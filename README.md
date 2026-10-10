@@ -241,8 +241,8 @@ Pull requests are welcome. For larger changes, open an issue first so we can tal
 
 ## Built with care
 
-ClientSphere started from a simple frustration: good freelancers spend more time chasing updates than doing the work they were hired for. It's an attempt to give that time back, one approval and one clear update at a time.
----
+**ClientSphere started from a simple frustration: good freelancers spend more time chasing updates than doing the work they were hired for. It's an attempt to give that time back, one approval and one clear update at a time.
+**---
 
 <div align="center">
 
