@@ -37,6 +37,7 @@ import {
   deleteMilestone,
   listClientInvites,
   revokeClientInvite,
+  suggestMembers,
 } from "../controllers/projectController.js";
 import { createNote, getNotes, toggleNoteVisibility } from "../controllers/noteController.js";
 import { uploadFile, getFiles, toggleFileVisibility } from "../controllers/fileController.js";
@@ -67,6 +68,7 @@ router
 
 router.patch("/:projectId/visibility", loadProject, validate(toggleProjectVisibilitySchema), toggleVisibility);
 router.post("/:projectId/members", loadProject, validate(addMemberSchema), addMember);
+router.get("/:projectId/member-suggestions", loadProject, suggestMembers);
 router.delete("/:projectId/members/:userId", loadProject, removeMember);
 router.get("/:projectId/analytics", loadProject, getAnalytics);
 router.post("/:projectId/client-invite", loadProject, requireProjectRole(["owner"]), validate(inviteClientSchema), inviteClient);

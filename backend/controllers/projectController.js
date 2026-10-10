@@ -13,7 +13,7 @@ import Invoice from "../models/Invoice.js";
 import ClientInvite from "../models/ClientInvite.js";
 import Task from "../models/Task.js";
 import { isValidMilestoneTransition } from "../middleware/projectAccess.js";
-import { createProjectNotifications } from "../services/notificationService.js";
+import { createProjectNotifications, createNotification } from "../services/notificationService.js";
 import { sendEmail } from "../services/emailService.js";
 import {
   inviteEmail,
@@ -277,7 +277,7 @@ export const addMember = asyncHandler(async (req, res) => {
   const userToAdd = await User.findOne({ email: email?.toLowerCase() });
   if (!userToAdd) {
     res.status(404);
-    throw new Error("No user found with that email");
+    throw new Error("No ClientSphere account uses that email yet. Ask them to sign up first.");
   }
 
   const alreadyMember = project.members.some((m) => m.user.toString() === userToAdd._id.toString());
@@ -290,7 +290,47 @@ export const addMember = asyncHandler(async (req, res) => {
   logActivity(project, req.user._id, "member_added", `${userToAdd.name} added as ${role || "editor"}`);
   await project.save();
 
+  // Tell the new member straight away (bell + live update), so they know they were added.
+  await createNotification({
+    recipientKey: `user:${userToAdd._id}`,
+    project: project._id,
+    type: "member_added",
+    title: "You were added to a project",
+    message: `${req.user.name} added you to "${project.name}" as ${role || "editor"}`,
+    metadata: { projectId: project._id },
+  });
+
+  await project.populate([
+    { path: "owner", select: "name email avatar" },
+    { path: "members.user", select: "name email avatar" },
+  ]);
   res.json({ success: true, project });
+});
+
+// @route GET /api/projects/:projectId/member-suggestions?q=
+// Owner only. Suggests registered users whose email or name starts with what was typed,
+// skipping people who are already on the project. Needs 3+ characters to limit scanning.
+export const suggestMembers = asyncHandler(async (req, res) => {
+  const project = req.project;
+  if (project.owner.toString() !== req.user._id.toString()) {
+    res.status(403);
+    throw new Error("Only the project owner can invite members");
+  }
+  const q = String(req.query.q || "").trim();
+  if (q.length < 3) return res.json({ success: true, users: [] });
+
+  const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const startsWith = new RegExp(`^${escaped}`, "i");
+  const excluded = [project.owner, req.user._id, ...project.members.map((m) => m.user)];
+
+  const users = await User.find({
+    _id: { $nin: excluded },
+    $or: [{ email: startsWith }, { name: startsWith }],
+  })
+    .select("name email avatar")
+    .limit(6);
+
+  res.json({ success: true, users });
 });
 
 // @route DELETE /api/projects/:projectId/members/:userId
@@ -303,6 +343,10 @@ export const removeMember = asyncHandler(async (req, res) => {
   project.members = project.members.filter((m) => m.user.toString() !== req.params.userId);
   logActivity(project, req.user._id, "member_removed");
   await project.save();
+  await project.populate([
+    { path: "owner", select: "name email avatar" },
+    { path: "members.user", select: "name email avatar" },
+  ]);
   res.json({ success: true, project });
 });
 

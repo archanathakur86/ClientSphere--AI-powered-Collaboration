@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import toast from "react-hot-toast";
 import api from "../api/axios.js";
-import { Search, Sparkles, FileText, StickyNote, MessageSquare, Flag, ArrowRight, Loader2 } from "lucide-react";
+import { Search, Sparkles, FileText, StickyNote, MessageSquare, Flag, ArrowRight, Loader2, Shield, Quote, CheckSquare} from "lucide-react";
 
 const STYLES = `
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;1,9..144,400;1,9..144,500&display=swap');
@@ -27,6 +27,21 @@ const EXAMPLES = [
   "Where did we discuss the homepage?",
   "What did the client ask to change?",
   "Which files mention pricing?",
+  "What did we decide about the colour palette?",
+];
+
+const SEARCHABLE = [
+  { label: "Notes", hint: "Meeting notes, decisions and ideas", icon: StickyNote, bg: "#f6dccb", ink: "#a4502d" },
+    { label: "Files", hint: "By name, and by text inside text and code files", icon: FileText, bg: "#dcebe2", ink: "#3f6e5b" },
+  { label: "Messages", hint: "Team discussion and client messages", icon: MessageSquare, bg: "#efe6f0", ink: "#6e4a78" },
+  { label: "Milestones", hint: "Deliverables, dates and approvals", icon: Flag, bg: "#f7ecc9", ink: "#8a6418" },
+    { label: "Tasks", hint: "Task titles and their status", icon: CheckSquare, bg: "#e4eef7", ink: "#3d6584" },
+];
+
+const TIPS = [
+  { title: "Ask like a teammate", text: "Describe what you remember, like 'the call about the pricing change'. You don't need exact words." },
+  { title: "Every answer shows its source", text: "Each result links to the note, file or message it came from, so you can check it yourself." },
+  { title: "Clients only see shared items", text: "Search covers internal material too, so the answers you get are for your team, not the client." },
 ];
 
 // Each source type gets its own tint so the results are easy to scan.
@@ -35,6 +50,7 @@ const TYPE_STYLE = {
   file: { label: "File", bg: "#dcebe2", ink: "#3f6e5b", icon: FileText },
   comment: { label: "Message", bg: "#efe6f0", ink: "#6e4a78", icon: MessageSquare },
   milestone: { label: "Milestone", bg: "#f7ecc9", ink: "#8a6418", icon: Flag },
+    task: { label: "Task", bg: "#e4eef7", ink: "#3d6584", icon: CheckSquare },
 };
 
 const typeOf = (type = "") => TYPE_STYLE[type] || { label: type || "Source", bg: "#f1ece4", ink: "#6b655e", icon: FileText };
@@ -85,49 +101,89 @@ export default function SearchBar({ projectId }) {
     <div className="space-y-10">
       <style>{STYLES}</style>
 
-      {/* Hero */}
-      <div className="sb-in">
-        <p className="text-[11px] uppercase tracking-[0.22em] text-[#c4673f]">Ask your project</p>
-        <h3 className="sb-serif text-5xl md:text-6xl mt-3 leading-[1.02] max-w-3xl">
-          Find any decision, <em className="italic text-[#c4673f]">in plain English.</em>
-        </h3>
-        <p className="mt-4 text-[#6b655e] max-w-2xl leading-relaxed">
-          Search across notes, files and client messages. Answers link back to the exact place they came from.
-        </p>
+      {/* Hero: search on the left, what the AI can see on the right */}
+      <div className="sb-in grid lg:grid-cols-12 gap-8 items-start">
+        <div className="lg:col-span-7">
+          <p className="text-[11px] uppercase tracking-[0.22em] text-[#c4673f]">Ask your project</p>
+          <h3 className="sb-serif text-5xl md:text-6xl mt-3 leading-[1.02]">
+            Find any decision, <em className="italic text-[#c4673f]">in plain English.</em>
+          </h3>
+          <p className="mt-4 text-[#6b655e] max-w-xl leading-relaxed">
+            Start typing a file name, a word or a question. Every result points back to the exact place it came from.
+          </p>
 
-        <form onSubmit={handleSearch} className="mt-8 relative max-w-3xl">
-          <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-[#6b655e] pointer-events-none" />
-          <input
-            className={inputCls}
-            placeholder="e.g. where did we discuss auth retry logic"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-          <button
-            disabled={loading}
-            className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center gap-2 text-sm font-semibold bg-[#1c1917] text-[#faf7f2] pl-4 pr-5 py-3 rounded-full hover:bg-[#c4673f] transition-colors disabled:opacity-60"
-          >
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-            {loading ? "Searching" : "Ask"}
-          </button>
-        </form>
+          <form onSubmit={handleSearch} className="mt-8 relative">
+            <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-[#6b655e] pointer-events-none" />
+            <input
+              className={inputCls}
+              placeholder="e.g. where did we discuss auth retry logic"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+            <button
+              disabled={loading}
+              className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center gap-2 text-sm font-semibold bg-[#1c1917] text-[#faf7f2] pl-4 pr-5 py-3 rounded-full hover:bg-[#c4673f] transition-colors disabled:opacity-60"
+            >
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              {loading ? "Searching" : "Ask"}
+            </button>
+          </form>
 
-        {!searched && (
-          <div className="mt-5 flex flex-wrap gap-2 max-w-3xl">
-            {EXAMPLES.map((ex) => (
-              <button
-                key={ex}
-                type="button"
-                onClick={() => askExample(ex)}
-                className="inline-flex items-center gap-2 text-xs font-semibold text-[#6b655e] bg-[#ffffff] border border-[#e8e2d9] px-4 py-2 rounded-full hover:border-[#c4673f] hover:text-[#a4502d] transition-colors"
-              >
-                {ex}
-                <ArrowRight className="w-3 h-3" />
-              </button>
-            ))}
-          </div>
+          {!searched && (
+            <div className="mt-6 flex flex-wrap gap-2">
+              {EXAMPLES.map((ex) => (
+                <button
+                  key={ex}
+                  type="button"
+                  onClick={() => askExample(ex)}
+                  className="inline-flex items-center gap-2 text-xs font-semibold text-[#6b655e] bg-[#ffffff] border border-[#e8e2d9] px-4 py-2 rounded-full hover:border-[#c4673f] hover:text-[#a4502d] transition-colors"
+                >
+                  {ex}
+                  <ArrowRight className="w-3 h-3" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {!searched && !loading && (
+          <aside className="lg:col-span-5 rounded-[32px] bg-[#ffffff] border border-[#e8e2d9] p-7 md:p-8 shadow-[0_30px_70px_-45px_rgba(60,40,20,0.35)]">
+            <div className="flex items-center gap-2">
+              <Shield className="w-4 h-4 text-[#3f6e5b]" />
+              <p className="text-[11px] uppercase tracking-[0.2em] text-[#6b655e]">What the AI can search</p>
+            </div>
+            <ul className="mt-6 space-y-3">
+              {SEARCHABLE.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <li key={item.label} className="flex items-center gap-4 rounded-2xl bg-[#faf7f2] border border-[#e8e2d9] p-4">
+                    <span className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: item.bg, color: item.ink }}>
+                      <Icon className="w-4 h-4" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="sb-serif text-lg leading-tight">{item.label}</p>
+                      <p className="text-xs text-[#6b655e] mt-0.5">{item.hint}</p>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </aside>
         )}
       </div>
+
+      {/* Tips, shown until the first search */}
+      {!searched && !loading && (
+        <div className="sb-in grid md:grid-cols-3 gap-4">
+          {TIPS.map((tip, i) => (
+            <div key={tip.title} className="sb-card rounded-[28px] bg-[#f4efe7] border border-[#e8e2d9] p-7" style={{ animationDelay: `${i * 90}ms` }}>
+              <Quote className="w-5 h-5 text-[#c4673f]" />
+              <p className="sb-serif text-2xl mt-5 leading-snug">{tip.title}</p>
+              <p className="text-sm text-[#6b655e] mt-3 leading-relaxed">{tip.text}</p>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Loading */}
       {loading && (

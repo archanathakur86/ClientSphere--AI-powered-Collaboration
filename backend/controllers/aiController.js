@@ -139,16 +139,20 @@ export const weeklyReport = asyncHandler(async (req, res) => {
     });
   }
 
-  const report = await generatePlainLanguageWeeklyUpdate({
-    projectName: project.name,
-    milestoneSummary,
-    taskSummary,
-    activitySummary,
-  });
+    let report = "";
+  for (let attempt = 0; attempt < 2 && !report; attempt++) {
+    const text = await generatePlainLanguageWeeklyUpdate({ projectName: project.name, milestoneSummary, taskSummary, activitySummary });
+    report = (text || "").trim();
+  }
+  // Never overwrite the saved draft with an empty result.
+  if (!report) {
+    res.status(502);
+    throw new Error("The AI didn't return an update. Your current draft is unchanged. Please try again.");
+  }
 
   project.weeklyUpdateDraft = { content: report, generatedAt: new Date(), sentAt: project.weeklyUpdateDraft?.sentAt || null, sentBy: project.weeklyUpdateDraft?.sentBy || null };
   await project.save();
-  res.json({ success: true, report, draft: project.weeklyUpdateDraft, fromCache: false });
+  res.json({ success: true, report, draft: project.weeklyUpdateDraft, fromCache: false }); 
 });
 
 // @route GET /api/projects/:projectId/ai/health
@@ -205,48 +209,113 @@ export const projectHealth = asyncHandler(async (req, res) => {
 });
 
 // @route GET /api/projects/:projectId/ai/search?q=...
+// Shows the words around the first match, so the source card has readable context.
+const snippetAround = (text = "", query = "", radius = 110) => {
+  const index = text.toLowerCase().indexOf(query.trim().toLowerCase());
+  if (index < 0) return text.slice(0, 220);
+  const start = Math.max(0, index - radius);
+  const end = index + query.trim().length + radius;
+  return `${start > 0 ? "…" : ""}${text.slice(start, end)}${end < text.length ? "…" : ""}`;
+};
+
+const escapeRegex = (text = "") => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 export const aiSearch = asyncHandler(async (req, res) => {
   const { q } = req.query;
   if (!q || q.trim().length < 2) {
     res.status(400);
     throw new Error("Search query must be at least 2 characters");
   }
+  const term = q.trim();
+  const words = term.split(/\s+/).filter(Boolean);
+  const projectId = req.project._id;
+  const phrase = new RegExp(escapeRegex(term), "i");
 
-  const queryEmbedding = await generateEmbedding(q);
-  const [noteHits, fileHits, commentHits] = await Promise.all([
-    loadVectorSearch({ model: Note, projectId: req.project._id, queryEmbedding, fields: ["title", "content", "embedding"], limit: 4 }),
-    loadVectorSearch({ model: FileItem, projectId: req.project._id, queryEmbedding, fields: ["originalName", "textContent", "embedding"], limit: 4, titleField: "originalName" }),
-    loadVectorSearch({ model: Comment, projectId: req.project._id, queryEmbedding, fields: ["content", "authorName", "embedding"], limit: 4, titleField: "content" }),
+  // VS Code style: every word typed must appear in the title/name, in any order, ignoring case.
+  // So "pric" finds "pricing.pdf" and "auth retry" finds "Auth retry logic".
+  const titleWords = (field) => ({
+    $and: words.map((w) => ({ [field]: new RegExp(escapeRegex(w), "i") })),
+  });
+
+  const [fileByName, noteByTitle, milestoneByTitle, taskByTitle, noteText, fileText, commentText, milestoneText] = await Promise.all([
+    FileItem.find({ project: projectId, ...titleWords("originalName") }).select("originalName fileType textContent").limit(6),
+    Note.find({ project: projectId, ...titleWords("title") }).select("title content").limit(6),
+    Milestone.find({ project: projectId, ...titleWords("title") }).select("title description status").limit(6),
+    Task.find({ project: projectId, ...titleWords("title") }).select("title status").limit(6),
+    Note.find({ project: projectId, content: phrase }).select("title content").limit(4),
+    FileItem.find({ project: projectId, textContent: phrase }).select("originalName fileType textContent").limit(4),
+    Comment.find({ project: projectId, content: phrase }).select("content authorName").limit(4),
+    Milestone.find({ project: projectId, description: phrase }).select("title description status").limit(4),
   ]);
 
-  const sources = [
-    ...noteHits.map((item) => ({
-      id: item._id.toString(),
-      type: "note",
-      title: item.title,
-      snippet: item.content.slice(0, 220),
-      sourceRef: `Note: ${item.title}`,
-    })),
-    ...fileHits.map((item) => ({
-      id: item._id.toString(),
-      type: "file",
-      title: item.originalName,
-      snippet: item.textContent.slice(0, 220),
-      sourceRef: `File: ${item.originalName}`,
-    })),
-    ...commentHits.map((item) => ({
-      id: item._id.toString(),
-      type: "comment",
-      title: item.authorName || "Comment",
-      snippet: item.content.slice(0, 220),
-      sourceRef: `Comment by ${item.authorName || "Client"}`,
-    })),
-  ]
-    .filter((item) => item.snippet && item.snippet.trim())
-    .slice(0, 8);
+  const seen = new Set();
+  const sources = [];
+  const add = (source) => {
+    const key = `${source.type}:${source.id}`;
+    if (!source.snippet || !source.snippet.trim() || seen.has(key)) return;
+    seen.add(key);
+    sources.push(source);
+  };
 
-  const answer = await answerWithSources({ question: q, sources, projectName: req.project.name });
-  res.json({ success: true, answer: answer.answer, sources: answer.sources, results: sources });
+  // 1) Names and titles first: the closest thing to "I know what it's called".
+  fileByName.forEach((f) =>
+    add({
+      id: f._id.toString(),
+      type: "file",
+      title: f.originalName,
+      snippet: f.textContent ? snippetAround(f.textContent, term) : `${f.originalName} · ${(f.fileType || "file").toUpperCase()}`,
+      sourceRef: `File: ${f.originalName}`,
+    })
+  );
+  noteByTitle.forEach((n) =>
+    add({ id: n._id.toString(), type: "note", title: n.title, snippet: snippetAround(n.content || n.title, term), sourceRef: `Note: ${n.title}` })
+  );
+  milestoneByTitle.forEach((m) =>
+    add({
+      id: m._id.toString(),
+      type: "milestone",
+      title: m.title,
+      snippet: m.description ? snippetAround(m.description, term) : `Status: ${m.status}`,
+      sourceRef: `Milestone: ${m.title}`,
+    })
+  );
+  taskByTitle.forEach((t) =>
+    add({ id: t._id.toString(), type: "task", title: t.title, snippet: `Status: ${t.status}`, sourceRef: `Task: ${t.title}` })
+  );
+
+  // 2) Exact words inside the content.
+  noteText.forEach((n) => add({ id: n._id.toString(), type: "note", title: n.title, snippet: snippetAround(n.content, term), sourceRef: `Note: ${n.title}` }));
+  fileText.forEach((f) => add({ id: f._id.toString(), type: "file", title: f.originalName, snippet: snippetAround(f.textContent, term), sourceRef: `File: ${f.originalName}` }));
+  commentText.forEach((c) => add({ id: c._id.toString(), type: "comment", title: c.authorName || "Client", snippet: snippetAround(c.content, term), sourceRef: `Comment by ${c.authorName || "Client"}` }));
+  milestoneText.forEach((m) => add({ id: m._id.toString(), type: "milestone", title: m.title, snippet: snippetAround(m.description, term), sourceRef: `Milestone: ${m.title}` }));
+
+  // 3) Meaning matches, for when the words differ (files, notes and messages only).
+  const queryEmbedding = await generateEmbedding(term);
+  const [noteHits, fileHits, commentHits] = await Promise.all([
+    loadVectorSearch({ model: Note, projectId, queryEmbedding, fields: ["title", "content", "embedding"], limit: 4 }),
+    loadVectorSearch({ model: FileItem, projectId, queryEmbedding, fields: ["originalName", "textContent", "embedding"], limit: 4, titleField: "originalName" }),
+    loadVectorSearch({ model: Comment, projectId, queryEmbedding, fields: ["content", "authorName", "embedding"], limit: 4, titleField: "content" }),
+  ]);
+  noteHits.forEach((n) => add({ id: n._id.toString(), type: "note", title: n.title, snippet: (n.content || "").slice(0, 220), sourceRef: `Note: ${n.title}` }));
+  fileHits.forEach((f) => add({ id: f._id.toString(), type: "file", title: f.originalName, snippet: (f.textContent || "").slice(0, 220), sourceRef: `File: ${f.originalName}` }));
+  commentHits.forEach((c) => add({ id: c._id.toString(), type: "comment", title: c.authorName || "Comment", snippet: (c.content || "").slice(0, 220), sourceRef: `Comment by ${c.authorName || "Client"}` }));
+
+  const limited = sources.slice(0, 10);
+
+  if (limited.length === 0) {
+    return res.json({
+      success: true,
+      answer: `Nothing in this project matches "${term}" yet. Try a shorter word, or part of a file name.`,
+      sources: [],
+      results: [],
+    });
+  }
+
+  const answer = await answerWithSources({ question: term, sources: limited, projectName: req.project.name });
+  const cited = new Set(answer.sources.map((s) => s.id));
+  const finalSources = limited.filter((s) => cited.has(s.id));
+
+  res.json({ success: true, answer: answer.answer, sources: finalSources.length ? finalSources : limited.slice(0, 6), results: limited });
 });
 
 // @route GET /api/projects/:projectId/ai/weekly-draft
