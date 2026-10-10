@@ -1,135 +1,252 @@
+<div align="center">
+
 # ClientSphere
 
-AI-powered workspace for freelancers and their clients — supercharged with **Groq AI** (Llama models). Built as a placement-ready full-stack capstone project.
+### The calm workspace where freelancers deliver, clients approve, and nobody chases an update again.
 
-## Features
+[![Node](https://img.shields.io/badge/Node.js-20%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org)
+[![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](https://react.dev)
+[![Express](https://img.shields.io/badge/Express-API-000000?logo=express&logoColor=white)](https://expressjs.com)
+[![MongoDB](https://img.shields.io/badge/MongoDB-Mongoose-47A248?logo=mongodb&logoColor=white)](https://mongodb.com)
+[![Groq](https://img.shields.io/badge/AI-Groq%20(Llama)-F55036)](https://groq.com)
+[![Socket.io](https://img.shields.io/badge/Realtime-Socket.io-010101?logo=socket.io&logoColor=white)](https://socket.io)
 
-### Core Platform
-- **Authentication** — JWT + bcrypt, secure register/login
-- **Projects & Collaboration** — create projects, invite members with roles (owner/editor/viewer)
-- **Markdown Notes** — rich note-taking per project
-- **File Upload & Preview** — code/asset uploads via Cloudinary, versioned by filename
-- **Contribution Analytics** — per-member note/file counts, visualized with charts
-- **Public Shareable Pages** — read-only public link for a project's README + notes
-- **Real-time presence** — Socket.io wired for "who's online / editing" indicators
-
-### AI Features (powered by Groq)
-| Feature | What it does |
-|---|---|
-|  Explain Note / Explain Code | Plain-English explanation of notes or uploaded code |
-|  Improve Note | AI-suggested edits for clarity |
-|  Auto-Tagging | Every note gets AI-generated tags automatically |
-|  AI Code Review | Diffs old vs new file version, flags risks like a PR reviewer |
-|  AI README Generator | Scans project files/notes → drafts a full README.md |
-|  Weekly Report Generator | Turns raw activity logs into a stakeholder-ready report |
-|  Project Health Score | Classifies project as Healthy / Slowing / Inactive with reasoning |
-|  AI Semantic Search | Natural-language search across notes & files (not just keyword match) |
-|  AI Task Extraction | Pulls action items out of meeting notes into a task board |
-|  Duplicate Note Detector | Warns when a new note looks like an existing one |
-
-###  Bonus: Voice AI Assistant ("Sphere")
-A ChatGPT-style floating assistant, built with the **Web Speech API**:
-- **Speech-to-Text (STT)** — tap the mic, speak your question
-- **Speech-to-Speech (STS)** — response is spoken back aloud *and* shown as text
-- **Persistent memory** — remembers the user's name every session (via profile), plus can store extra facts (`/api/assistant/remember`)
-- **Conversation history** — stored per-user in MongoDB, last 20 messages used as context
-- Full loading states: `listening → thinking → speaking`
-- Graceful error handling: mic permission denied, no speech detected, API timeout, network failure
-
-##  Tech Stack
-
-| Layer | Tech |
-|---|---|
-| Frontend | React (Vite), Tailwind CSS, React Router, Recharts, Web Speech API |
-| Backend | Node.js, Express.js |
-| Database | MongoDB + Mongoose |
-| AI | Groq API (`llama-3.3-70b-versatile` + `llama-3.1-8b-instant`) |
-| File Storage | Cloudinary |
-| Real-time | Socket.io |
-| Auth | JWT + bcrypt |
-
-##  Project Structure
-
-```
-ClientSphere/
-├── backend/
-│   ├── config/          # db.js, cloudinary.js
-│   ├── models/          # User, Project, Note, FileItem, Conversation, Task
-│   ├── middleware/       # auth, project loader, upload, error handler
-│   ├── services/         # groqService.js (all AI calls), uploadService.js
-│   ├── controllers/      # auth, project, note, file, ai, assistant
-│   ├── routes/
-│   └── server.js
-└── frontend/
-    └── src/
-        ├── api/axios.js
-        ├── context/AuthContext.jsx
-        ├── pages/         # Login, Register, Dashboard, ProjectPage, PublicProject
-        └── components/    # NoteEditor, FileUpload, VoiceAssistant, AnalyticsPanel, etc.
-```
-
-##  Setup Instructions
-
-### Prerequisites
-- Node.js 18+
-- A MongoDB Atlas cluster (or local MongoDB)
-- A free [Groq API key](https://console.groq.com)
-- A free [Cloudinary](https://cloudinary.com) account
-
-### 1. Backend
-
-```bash
-cd backend
-npm install
-cp .env.example .env
-# Fill in MONGO_URI, JWT_SECRET, GROQ_API_KEY, CLOUDINARY_* in .env
-npm run dev
-```
-
-Backend runs on `http://localhost:5000`.
-
-### 2. Frontend
-
-```bash
-cd frontend
-npm install
-cp .env.example .env
-# VITE_API_URL=http://localhost:5000/api (default is fine for local dev)
-npm run dev
-```
-
-Frontend runs on `http://localhost:5173`.
-
-### 3. Try it out
-1. Register a new account
-2. Create a project
-3. Add a markdown note → watch AI auto-tag it
-4. Upload a `.js` or `.py` file → click "Explain Code" or "AI Code Review"
-5. Click the floating button → talk to Sphere with your mic
-6. Check the "AI Reports" tab for weekly report + README generation
-7. Try "Search" tab with a natural-language query
-
-##  Environment Variables
-
-See `backend/.env.example` and `frontend/.env.example` for the full list. Never commit real `.env` files — they're already in `.gitignore`.
-
-##  Deployment
-
-- **Backend** → Render / Railway / AWS EC2
-- **Frontend** → Vercel / Netlify
-- **Database** → MongoDB Atlas
-- Remember to update `CLIENT_URL` (backend) and `VITE_API_URL` (frontend) for production.
-
-## Notes on AI Architecture
-
-All Groq calls are centralized in `backend/services/groqService.js` — every AI feature (explain, review, README gen, search, task extraction, assistant chat) is a thin wrapper around one `chatCompletion()` function. This keeps the code DRY, makes it trivial to swap models, and is a good talking point in interviews: *"I built one reusable AI service layer that every feature routes through, with JSON-mode structured outputs for anything that needs parsing."*
-
-##  Future Scope (great for a README "roadmap" section)
-- Vector embeddings + MongoDB Atlas Vector Search for true semantic search at scale
-- GitHub OAuth import for real repos
-- Slack/Discord notifications on AI-flagged risks in code review
-- Team-level (not just project-level) health dashboards
+</div>
 
 ---
 
-Built as a full-stack + AI capstone project to demonstrate frontend, backend, database, and AI integration skills end-to-end.
+## The problem
+
+Freelancers and small agencies run client work on a mess of tools: email threads for approvals, chat for feedback, spreadsheets for invoices, and screenshots for "what did we agree?"
+
+- **Status updates eat the week.** The same "where are we?" email gets rewritten for every client, every Friday.
+- **Scope creeps in silently.** A "quick favour" in a chat message becomes ten unpaid hours, and nobody agreed to it.
+- **Approvals get lost.** Feedback is scattered across inboxes, and the wrong version gets signed off.
+- **Payment chases are awkward.** Invoices get sent late, or never tied to the work that was approved.
+- **Clients hate logging in.** Asking for yet another account and password is a barrier to honest feedback.
+
+## The solution
+
+ClientSphere puts the whole client relationship in one place, and uses AI to do the tedious parts.
+
+| Instead of... | ClientSphere gives you... |
+|---|---|
+| Writing the same status email every week | An **AI-drafted progress update** from real milestones and activity, which you review, edit, and send to the client's portal |
+| Hoping nobody notices scope creep | **Automatic scope checks** on every client message, with a suggested polite reply you can copy |
+| Losing approvals in threads | **Milestones** with a clear review flow: submit, approve, or request changes, with a full history |
+| Chasing payments | **Invoices drafted automatically** when a milestone is approved, paid through **Stripe** |
+| Making clients create accounts | A **private magic-link portal**: no login, no password, just a secure link |
+
+---
+
+## Feature highlights
+
+### Client portal, no account needed
+- Clients get a private link by email and can review milestones, approve deliverables, request changes, download invoices, and pay.
+- They see only what you share: milestones, files and notes you mark as shared, and invoices you sent.
+- Access can be revoked instantly, and links expire automatically.
+- Clients can attach files and screenshots to messages, so the team sees them in the same discussion.
+
+### AI progress updates
+- A weekly update is drafted from real milestones, tasks and activity, in plain language a client can read.
+- Nothing reaches the client until you press **Send**. It then appears in their portal and is emailed to them.
+- A scheduled job prepares drafts automatically each week.
+
+### Scope creep detection
+- Every client comment is compared against your milestone descriptions.
+- If a request falls outside the agreed scope, you see the reason and a suggested reply, ready to copy.
+
+### Milestones, invoices and payments
+- Break a project into milestones with due dates and prices.
+- Submit a milestone for review, and the client approves or asks for changes.
+- Approval drafts an invoice. Send it, edit it, download the PDF, or let the client pay through Stripe Checkout.
+- A ledger shows what's outstanding, what's collected, and what's still in draft.
+
+### Notes that think with you
+- Rich markdown notes with a live preview and a quick toolbar.
+- **Explain**, **Improve**, and **Extract tasks** actions powered by AI.
+- Duplicate detection warns you before you write the same note twice.
+- Share a note with the client with one toggle, or keep it internal.
+
+### Files with versions and AI code review
+- Upload files up to 10MB. Uploading the same name again saves a new version.
+- Uploading a new version of a code file triggers an **AI review** that compares it with the previous version: a risk level, a summary, and concrete suggestions.
+- Text and code files are searchable by their content.
+
+### Tasks that come from conversations
+- Tasks can be created by hand or extracted from a note's action items.
+- Assign a task to a project member. They get a notification straight away.
+- Track status (to do, in progress, done) and urgency, with a progress ring.
+
+### Discussion with mentions and privacy controls
+- Comments are internal by default. Share one with the client, or reply to a client message and share the reply in one step.
+- Type `@` and the email of a teammate to mention them. They get a notification.
+- Attach screenshots and files to messages.
+
+### Semantic search that finds what you mean
+- Ask a question in plain English and get an answer that cites its sources: notes, files, messages, milestones and tasks.
+- Find files by name as you type, the way a code editor's quick-open does.
+- Combines exact word matches with meaning-based matches.
+
+### Project health and analytics
+- Every project gets a health score: **healthy**, **slowing**, or **inactive**, based on recent activity.
+- Contribution charts show notes and files per member, plus each person's share of the work.
+
+### Team and public sharing
+- Invite teammates as **editors** or **viewers**. Only owners see invoices and client settings.
+- Publish a read-only public page with the project's README and notes.
+- Everyone on the project sees live presence, and notifications arrive in real time.
+
+### Voice assistant
+- A floating assistant that answers questions about your projects.
+
+---
+
+## Architecture
+
+```mermaid
+flowchart LR
+    F["Freelancer app<br/>React + Vite"] -->|REST + sockets| API["Express API<br/>JWT, Zod, rate limits"]
+    C["Client portal<br/>magic link, no login"] -->|REST + sockets| API
+    API --> DB[("MongoDB<br/>Mongoose")]
+    API --> AI["Groq (Llama)<br/>explain, review, search, drafts"]
+    API --> EMB["Local embeddings<br/>@xenova/transformers"]
+    API --> CDN["Cloudinary<br/>file storage"]
+    API --> PAY["Stripe<br/>checkout and webhooks"]
+    API --> MAIL["SMTP<br/>invites and updates"]
+    API <-->|Socket.io| F
+    API <-->|Socket.io| C
+    CRON["Weekly job<br/>node-cron"] --> API
+```
+
+## Tech stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | React 18, Vite, React Router, Axios, Recharts, react-markdown, react-hot-toast, lucide-react, socket.io-client |
+| Backend | Node.js, Express, Mongoose (MongoDB), Socket.io, Zod validation, express-rate-limit, helmet |
+| AI | Groq API (Llama models), local sentence embeddings via `@xenova/transformers` |
+| Payments | Stripe Checkout and webhooks |
+| Storage | Cloudinary (uploads and PDFs), multer for multipart |
+| Email | Nodemailer over SMTP (works with Resend, Brevo, or any SMTP provider) |
+| Auth | JWT, bcrypt, separate scoped client session tokens |
+| Docs | PDFKit for invoice PDFs |
+| Testing | Jest, Supertest, mongodb-memory-server |
+
+## Project structure
+
+```
+collabsphere/
+├── backend/
+│   ├── controllers/      # Business logic per feature
+│   ├── routes/           # Express routers (staff, client portal, public)
+│   ├── models/           # Mongoose schemas
+│   ├── middleware/       # Auth, project access, validation, rate limits
+│   ├── services/         # AI, notifications, email, payments, uploads, weekly job
+│   ├── utils/            # Zod schemas, password policy, helpers
+│   └── tests/            # Security and API tests
+└── frontend/
+    └── src/
+        ├── pages/        # Dashboard, ProjectPage, ClientPortal, auth, public
+        ├── components/   # Milestones, notes, files, tasks, discussion, analytics, ...
+        ├── context/      # Auth state
+        ├── hooks/        # Realtime (Socket.io)
+        └── api/          # Axios client with session handling
+```
+
+---
+
+## Getting started
+
+### Prerequisites
+- Node.js 20 or newer
+- A MongoDB database (local or MongoDB Atlas)
+- API keys: Groq, Cloudinary, and optionally Stripe and an SMTP provider
+
+### 1. Clone and install
+
+```bash
+git clone https://github.com/your-username/collabsphere.git
+cd collabsphere
+
+cd backend && npm install
+cd ../frontend && npm install
+```
+
+### 2. Configure the backend
+
+Copy `backend/.env.example` to `backend/.env` and fill in the values:
+
+| Variable | Purpose |
+|---|---|
+| `PORT` | API port (default `5000`) |
+| `MONGO_URI` | MongoDB connection string |
+| `JWT_SECRET`, `JWT_EXPIRES_IN` | Signing key and token lifetime |
+| `GROQ_API_KEY`, `GROQ_MODEL`, `GROQ_MODEL_FAST` | AI features |
+| `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | File storage |
+| `CLIENT_URL` | Frontend URL, used in client invite links |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | Invite and update emails (optional) |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Client payments (optional) |
+
+Never commit `.env`. It is already listed in `.gitignore`.
+
+### 3. Run it
+
+```bash
+# Terminal 1: API
+cd backend
+npm run dev
+
+# Terminal 2: web app
+cd frontend
+npm run dev
+```
+
+Open the frontend URL that Vite prints (usually `http://localhost:5173`), register, and create your first project. To load sample data, run `npm run seed` in `backend/`.
+
+### 4. Run the tests
+
+```bash
+cd backend
+npm test
+```
+
+---
+
+## Security
+
+- Passwords are hashed with bcrypt, and a strength policy is enforced on both client and server.
+- Every project route checks membership and role before it runs.
+- Client portal sessions are separate from staff sessions and scoped to a single project.
+- Inputs are validated with Zod, and NoSQL operators are sanitized.
+- Rate limits protect login, registration, and AI endpoints.
+- Helmet sets secure HTTP headers.
+- Uploaded files are served through authenticated endpoints, not public URLs.
+
+## Roadmap
+
+- Email notifications for clients (new milestones, comments, and invoices)
+- Client file uploads with approval
+- Recurring invoices and payment reminders
+- Mobile-first client portal improvements
+- Team activity digests
+
+## Contributing
+
+Pull requests are welcome. For larger changes, open an issue first so we can talk through the approach.
+
+1. Fork the repo and create a branch: `git checkout -b feature/your-idea`
+2. Commit with a clear message: `git commit -m "feat(scope): what changed"`
+3. Push and open a pull request.
+
+## License
+
+Add your license here (for example MIT).
+
+---
+
+<div align="center">
+
+Built for freelancers who would rather be building than chasing updates.
+
+</div>
