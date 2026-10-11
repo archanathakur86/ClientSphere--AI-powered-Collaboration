@@ -15,6 +15,7 @@ import {
   answerWithSources,
   generateHealthReason,
   extractActionItems,
+  draftProposalFromBrief,
 } from "../services/groqService.js";
 import { logActivity } from "./projectController.js";
 import { createNotification } from "../services/notificationService.js";
@@ -535,4 +536,50 @@ export const deleteTask = asyncHandler(async (req, res) => {
   await loadProjectForUser(res, task.project, req.user, ["owner", "editor"]);
   await task.deleteOne();
   res.json({ success: true, message: "Task deleted" });
+});
+
+// @route POST /api/projects/:projectId/ai/proposal   body: { brief }
+// Drafts milestones from a brief. Nothing is saved here; the freelancer reviews and confirms first.
+export const draftProposal = asyncHandler(async (req, res) => {
+  const brief = String(req.body.brief || "").trim();
+  if (brief.length < 20) {
+    res.status(400);
+    throw new Error("Paste a bit more of the client's brief (at least 20 characters)");
+  }
+  if (brief.length > 8000) {
+    res.status(400);
+    throw new Error("The brief is too long (8000 characters at most)");
+  }
+
+  const raw = await draftProposalFromBrief({ brief, projectName: req.project.name });
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    res.status(502);
+    throw new Error("The AI returned an unreadable proposal. Please try again.");
+  }
+
+  const milestones = (Array.isArray(parsed.milestones) ? parsed.milestones : []).slice(0, 8).map((m) => {
+    const dueInDays = Math.min(365, Math.max(1, Math.round(Number(m.dueInDays) || 14)));
+    return {
+      title: String(m.title || "Untitled milestone").slice(0, 120),
+      description: String(m.description || "").slice(0, 400),
+      amount: Math.max(0, Math.round((Number(m.amount) || 0) * 100) / 100),
+      dueDate: new Date(Date.now() + dueInDays * 86400000).toISOString().slice(0, 10),
+    };
+  });
+  if (milestones.length === 0) {
+    res.status(502);
+    throw new Error("The AI couldn't find milestones in that brief. Add more detail and try again.");
+  }
+
+  res.json({
+    success: true,
+    proposal: {
+      scopeSummary: String(parsed.scopeSummary || "").slice(0, 400),
+      milestones,
+      assumptions: (Array.isArray(parsed.assumptions) ? parsed.assumptions : []).slice(0, 6).map((a) => String(a).slice(0, 200)),
+    },
+  });
 });

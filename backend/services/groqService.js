@@ -462,4 +462,18 @@ export const semanticSearchAnswer = async (query, candidates) => {
   }
 };
 
+// Turns a client's brief (email, call notes, a scope paragraph) into a draft of milestones.
+// Returns raw JSON text; the controller validates it before anything is shown or saved.
+export const draftProposalFromBrief = async ({ brief = "", projectName = "" } = {}) => {
+  const messages = [
+    {
+      role: "system",
+      content:
+        'You help a freelancer turn a client brief into a delivery plan. Return ONLY a JSON object with this shape: {"scopeSummary": string (at most 2 sentences), "milestones": [{"title": string, "description": string (one sentence on what the client receives), "amount": number (USD), "dueInDays": integer}], "assumptions": [string]}. Create 3 to 6 milestones in delivery order. If the brief states a budget, make the amounts add up to it. If something important is missing, write it as an assumption instead of inventing details.',
+    },
+    { role: "user", content: `Project: ${projectName}\n\nClient brief:\n${brief}` },
+  ];
+  return chatCompletion(messages, { maxTokens: 900, temperature: 0.3, jsonMode: true });
+};
+
 export default groq;

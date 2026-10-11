@@ -92,7 +92,7 @@ function MilestoneForm({ initial, submitLabel, saving, onSubmit, onCancel }) {
         </label>
         <label>
           <span className={labelCls}>Amount (USD)</span>
-          <input type="number" min="0" step="0.01" className={inputCls} placeholder="0.00" value={form.amount} onChange={set("amount")} />
+          <input type="number" min="0" step="1" className={inputCls} placeholder="0.00" value={form.amount} onChange={set("amount")} />
         </label>
       </div>
       <div className="flex gap-3 pt-1">
@@ -123,6 +123,7 @@ export default function MilestonesTab({ projectId, project, canEdit, onChanged, 
   const [saving, setSaving] = useState(false);
   const [busyId, setBusyId] = useState(null);
   const [view, setView] = useState("timeline");
+  const [confirmAction, setConfirmAction] = useState(null);
 
   const load = useCallback(async () => {
     try {
@@ -173,7 +174,6 @@ export default function MilestonesTab({ projectId, project, canEdit, onChanged, 
   };
 
   const remove = async (milestone) => {
-    if (!window.confirm(`Delete "${milestone.title}"? This can't be undone.`)) return;
     setBusyId(milestone._id);
     try {
       await api.delete(`/projects/${projectId}/milestones/${milestone._id}`);
@@ -186,9 +186,19 @@ export default function MilestonesTab({ projectId, project, canEdit, onChanged, 
     }
   };
 
+    // Submitting never asks for confirmation. The card already shows when no client is connected.
   const submitForReview = (milestone) => {
-    if (!project?.clientEmail && !window.confirm("No client has been invited yet, so nobody can review this. Submit anyway?")) return;
+    if (!project?.clientEmail) {
+      toast.error("Invite a client first, so they can review this milestone.");
+      return;
+    }
     update(milestone._id, { status: "in review" }, "Submitted. The client has been notified.");
+  };
+
+  const runConfirmed = () => {
+    const milestone = milestones.find((m) => m._id === confirmAction?.id);
+    setConfirmAction(null);
+    if (milestone) remove(milestone);
   };
 
   if (loading) {
@@ -221,9 +231,39 @@ export default function MilestonesTab({ projectId, project, canEdit, onChanged, 
       "inline-flex items-center gap-1.5 text-xs font-semibold bg-[#ffffff] border border-[#e8e2d9] text-[#1c1917] px-4 py-2 rounded-full hover:border-[#1c1917] transition-colors disabled:opacity-50";
     return (
       <div className="flex flex-wrap items-center gap-2 mt-5">
+                {confirmAction?.id === m._id && (
+          <div className="w-full rounded-2xl bg-[#f7ecc9]/70 border border-[#efd9a0] p-3.5 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs text-[#5c3f0d] leading-relaxed">Delete "{m.title}"? This can't be undone.</p>
+            <div className="flex gap-2">
+              <button
+                onClick={runConfirmed}
+                className="text-xs font-semibold bg-[#1c1917] text-[#faf7f2] px-4 py-2 rounded-full hover:bg-[#c4673f] transition-colors"
+              >
+                Delete
+              </button>
+              <button
+                onClick={() => setConfirmAction(null)}
+                className="text-xs font-semibold border border-[#e8e2d9] bg-[#ffffff] px-4 py-2 rounded-full hover:border-[#1c1917] transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+          {(m.status === "pending" || m.status === "changes requested") && !project?.clientEmail && (
+          <p className="w-full text-xs text-[#a4502d] flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span>Add a client to send this for review.</span>
+            {onGoToClient && (
+              <button onClick={onGoToClient} className="font-semibold underline underline-offset-2 hover:text-[#1c1917]">
+                Invite a client
+              </button>
+            )}
+          </p>
+        )}
         {(m.status === "pending" || m.status === "changes requested") && (
-          <button
-            disabled={busy}
+            <button
+            disabled={busy || !project?.clientEmail}
+            title={!project?.clientEmail ? "Invite a client first" : undefined}
             onClick={() => submitForReview(m)}
             className="inline-flex items-center gap-1.5 text-xs font-semibold bg-[#1c1917] text-[#faf7f2] px-4 py-2 rounded-full hover:bg-[#c4673f] transition-colors disabled:opacity-50"
           >
@@ -251,7 +291,7 @@ export default function MilestonesTab({ projectId, project, canEdit, onChanged, 
         {editable && (
           <button
             disabled={busy}
-            onClick={() => remove(m)}
+            onClick={() => setConfirmAction({ type: "delete", id: m._id })}
             className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#b4475a] px-4 py-2 rounded-full hover:bg-[#f9e1d6] transition-colors disabled:opacity-50"
           >
             <Trash2 className="w-3.5 h-3.5" /> Delete

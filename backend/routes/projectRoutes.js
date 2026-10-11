@@ -52,6 +52,7 @@ import {
   getWeeklyUpdateDraft,
   saveWeeklyUpdateDraft,
   sendWeeklyUpdateDraft,
+  draftProposal,
 } from "../controllers/aiController.js";
 import { getComments, addComment, toggleCommentVisibility,downloadCommentAttachment  } from "../controllers/commentController.js";
 
@@ -95,6 +96,7 @@ router
 
 // AI project-level features
 router.post("/:projectId/ai/readme", aiLimiter, loadProject, generateProjectReadme);
+router.post("/:projectId/ai/proposal", aiLimiter, loadProject, requireProjectRole(["owner", "editor"]), draftProposal);
 router.get("/:projectId/ai/weekly-report", aiLimiter, loadProject, weeklyReport);
 router.get("/:projectId/ai/weekly-draft", loadProject, getWeeklyUpdateDraft);
 router.patch("/:projectId/ai/weekly-draft", loadProject, requireProjectRole(["owner", "editor"]), validate(weeklyDraftSchema), saveWeeklyUpdateDraft);

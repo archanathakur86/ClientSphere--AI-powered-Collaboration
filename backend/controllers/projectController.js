@@ -139,6 +139,7 @@ const buildPortalPayload = async (project) => {
     files: files.map(toPortalFile),
     weeklyUpdate: published,
     weeklyUpdateSentAt: project.publishedUpdate?.sentAt || null,
+    paymentsEnabled: Boolean(process.env.STRIPE_SECRET_KEY),
     progress:
       milestones.length > 0
         ? Math.round((milestones.filter((m) => m.status === "approved").length / milestones.length) * 100)

@@ -22,6 +22,7 @@ import MembersPanel from "../components/MembersPanel.jsx";
 import CommentsPanel from "../components/CommentsPanel.jsx";
 import MilestonesTab from "../components/MilestonesTab.jsx";
 import ClientAccessPanel from "../components/ClientAccessPanel.jsx";
+import ProposalDrafter from "../components/ProposalDrafter.jsx";
 
 const TABS = ["Milestones", "Notes", "Files", "Tasks", "Invoices", "Client", "Search", "Analytics", "AI Reports", "Members", "Discussion"];
 
@@ -115,7 +116,7 @@ export default function ProjectPage() {
     const requested = searchParams.get("tab");
     if (requested && TABS.includes(requested)) setTab(requested);
   }, [searchParams]);
-  
+
   if (loading) return <div className="max-w-5xl mx-auto px-4 py-10 text-slate-400">Loading project...</div>;
   if (!project) {
     return (
@@ -216,6 +217,18 @@ export default function ProjectPage() {
       </nav>
 
       <div className="mt-8">
+            {tab === "Milestones" && (
+            <ProposalDrafter
+              projectId={projectId}
+              canEdit={canEdit}
+              onCreated={() => {
+                bumpHealth();
+                refreshProject();
+                setDataVersion((v) => v + 1);
+              }}
+            />
+          )}
+          
         {tab === "Milestones" && (
           <MilestonesTab
             projectId={projectId}
