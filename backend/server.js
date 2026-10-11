@@ -63,6 +63,8 @@ if (process.env.NODE_ENV !== "test") {
 connectDB();
 
 const app = express();
+// Render (and most hosts) put the app behind a proxy. Trust the first hop so rate limits see real client IPs.
+app.set("trust proxy", 1);
 const server = http.createServer(app);
 
 const allowedOrigin = process.env.CLIENT_URL || "http://localhost:5173";
