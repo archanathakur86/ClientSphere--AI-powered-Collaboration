@@ -5,7 +5,7 @@ import api from "../api/axios.js";
 import HealthBadge from "../components/HealthBadge.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useRealtime } from "../hooks/useRealtime.js";
-import NotificationBell from "../components/NotificationBell.jsx";
+import NotificationBell, { notificationDestination } from "../components/NotificationBell.jsx";
 import {
   Sparkles,
   Plus,
@@ -433,7 +433,7 @@ export default function Dashboard() {
             <button
               onClick={() => {
                 logout();
-                navigate("/login");
+                navigate("/");
               }}
               className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#6b655e] hover:text-[#b4475a] px-3 py-2 rounded-full hover:bg-[#f9e1d6] transition-colors"
               title="Sign out"
@@ -723,7 +723,11 @@ export default function Dashboard() {
                   {feed.map((item, idx) => (
                     <li key={item._id} className="ds-card" style={{ animationDelay: `${idx * 70}ms` }}>
                       <button
-                        onClick={() => realtime.markNotificationRead?.(item._id)}
+                          onClick={() => {
+                          realtime.markNotificationRead?.(item._id);
+                          const to = notificationDestination(item);
+                          if (to) navigate(to);
+                        }}
                         className={`w-full text-left rounded-2xl px-4 py-3 border transition-colors hover:bg-[#faf7f2] ${
                           item.readAt ? "border-transparent opacity-60" : "border-[#f6dccb] bg-[#fdf6f1]"
                         }`}

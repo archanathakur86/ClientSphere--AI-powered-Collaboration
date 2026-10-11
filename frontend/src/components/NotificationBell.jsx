@@ -1,5 +1,29 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Bell, CheckCheck } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+
+// Which section of the project each notification is about.
+const TAB_FOR_TYPE = {
+  milestone_submitted: "Milestones",
+  milestone_approved: "Milestones",
+  milestone_changes_requested: "Milestones",
+  new_comment: "Discussion",
+  mention: "Discussion",
+  invoice_paid: "Invoices",
+  invoice_sent: "Invoices",
+  invoice_overdue: "Invoices",
+  task_assigned: "Tasks",
+  member_added: "Members",
+};
+
+// Where a notification should take the user when it's opened.
+export const notificationDestination = (item, audience = "team") => {
+  const projectId = String(item.project?._id || item.project || "");
+  if (!projectId) return null;
+  if (audience === "client") return `/client/${projectId}`;
+  const tab = TAB_FOR_TYPE[item.type];
+  return tab ? `/projects/${projectId}?tab=${encodeURIComponent(tab)}` : `/projects/${projectId}`;
+};
 
 const NB_STYLES = `
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500&display=swap');
@@ -8,8 +32,17 @@ const NB_STYLES = `
 .nb-pop { animation: nbIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) both; transform-origin: top right; }
 `;
 
-export default function NotificationBell({ notifications = [], unreadCount = 0, onMarkRead, onMarkAllRead }) {
+export default function NotificationBell({ notifications = [], unreadCount = 0, onMarkRead, onMarkAllRead, audience = "team" }) {
   const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
+
+  // Open the notification: mark it read, close the panel, and go to the place it is about.
+  const openItem = (item) => {
+    onMarkRead?.(item._id);
+    setOpen(false);
+    const to = notificationDestination(item, audience);
+    if (to) navigate(to);
+  };
   const wrapperRef = useRef(null);
 
   // Close when the user clicks anywhere outside the bell + panel, or presses Escape.
@@ -80,7 +113,7 @@ export default function NotificationBell({ notifications = [], unreadCount = 0, 
               notifications.map((item) => (
                 <button
                   key={item._id}
-                  onClick={() => onMarkRead?.(item._id)}
+                  onClick={() => openItem(item)}
                   className={`w-full text-left px-5 py-4 transition-colors hover:bg-[#faf7f2] ${
                     item.readAt ? "opacity-60" : ""
                   }`}

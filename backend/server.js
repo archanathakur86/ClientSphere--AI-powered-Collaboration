@@ -6,8 +6,9 @@ import http from "http";
 import { Server } from "socket.io";
 import cron from "node-cron";
 import jwt from "jsonwebtoken";
-
+import mongoose from "mongoose";
 import connectDB from "./config/db.js";
+
 import { notFound, errorHandler } from "./middleware/errorHandler.js";
 import { nosqlSanitizer } from "./middleware/nosqlSanitize.js";
 import { apiLimiter } from "./middleware/rateLimiter.js";
@@ -112,9 +113,21 @@ app.use((req, res, next) => {
 app.get("/", (req, res) => {
   res.json({ success: true, message: "ClientSphere API is running" });
 });
+// Health check for uptime monitors and hosting platforms.
+// Returns 200 when the API and its database are ready, 503 while the database is still connecting or down.
+// Kept outside /api so the rate limiter never blocks a monitor.
+const DB_STATES = { 0: "disconnected", 1: "connected", 2: "connecting", 3: "disconnecting" };
 app.get("/health", (req, res) => {
-  res.status(200).send("ok");
+  const db = DB_STATES[mongoose.connection.readyState] || "unknown";
+  const ready = db === "connected";
+  res.status(ready ? 200 : 503).json({
+    status: ready ? "ok" : "starting",
+    db,
+    uptimeSeconds: Math.round(process.uptime()),
+    timestamp: new Date().toISOString(),
+  });
 });
+
 app.use("/api/auth", authRoutes);
 app.use("/api/projects", projectRoutes);
 app.use("/api/projects", projectInvoiceRoutes);

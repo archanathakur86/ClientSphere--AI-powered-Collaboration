@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import api from "../api/axios.js";
 import { useAuth } from "../context/AuthContext.jsx";
@@ -54,7 +54,8 @@ const PP_STYLES = `
 
 export default function ProjectPage() {
   const { projectId } = useParams();
-  const { user } = useAuth();
+    const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [project, setProject] = useState(null);
   const [notes, setNotes] = useState([]);
   const [files, setFiles] = useState([]);
@@ -109,6 +110,12 @@ export default function ProjectPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [realtime.socket]);
 
+  // Notifications link to /projects/:id?tab=Discussion etc. Open that tab when the URL asks for one.
+  useEffect(() => {
+    const requested = searchParams.get("tab");
+    if (requested && TABS.includes(requested)) setTab(requested);
+  }, [searchParams]);
+  
   if (loading) return <div className="max-w-5xl mx-auto px-4 py-10 text-slate-400">Loading project...</div>;
   if (!project) {
     return (

@@ -39,7 +39,7 @@ export default function Navbar() {
             <button
               onClick={() => {
                 logout();
-                navigate("/login");
+                navigate("/");
               }}
               className="flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-rose-400 px-3 py-1.5 rounded-lg hover:bg-rose-50 transition-colors"
               title="Sign Out"

@@ -425,6 +425,7 @@ export default function ClientPortal() {
               <span className="text-xs font-semibold max-w-[8rem] truncate">{clientName}</span>
             </div>
             <NotificationBell
+              audience="client"
               notifications={realtime.notifications}
               unreadCount={realtime.unreadCount}
               onMarkRead={realtime.markNotificationRead}
