@@ -11,6 +11,10 @@ const getTransporter = () => {
     port: Number(SMTP_PORT),
     secure: Number(SMTP_PORT) === 465,
     auth: { user: SMTP_USER, pass: SMTP_PASS },
+    // Fail fast instead of leaving the invite button spinning when the mail server is unreachable.
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 15000,
   });
   transporter.from = SMTP_FROM || SMTP_USER;
   return transporter;
