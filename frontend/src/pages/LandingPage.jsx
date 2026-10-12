@@ -10,8 +10,8 @@ import {
   Layers,
   FileText,
   MessageSquare,
-  DollarSign,
   Search,
+  Mail,
   Users,
   Play,
   Menu,
@@ -68,11 +68,13 @@ const NAV = [
 ];
 
 const TICKER = [
+  "Brief to proposal",
   "Client portal, no login",
+  "Email invites",
   "AI progress updates",
   "Scope check",
   "Milestones and approvals",
-  "Stripe invoices",
+  "Live notifications",
   "Plain-language search",
 ];
 
@@ -91,12 +93,29 @@ const STEPS = [
 
 const FEATURES = [
   {
+    icon: Sparkles,
+    title: "Brief to proposal",
+    text: "Paste a client's email or call notes. AI drafts the scope, milestones, prices and due dates, and you review everything before it is added.",
+    points: ["Scope summary and 3 to 6 milestones", "Assumptions to check before you commit", "Edit every line, then add it in one click"],
+    tint: "#f6dccb",
+    ink: "#a4502d",
+    big: true,
+  },
+  {
     icon: Lock,
     title: "Client portal, no login",
-    text: "Your client opens a private link from their email to approve milestones, leave feedback and pay. No account, no password.",
-    points: ["One secure link per project", "Clients see only what you share", "Approve, request changes and pay from one page"],
+    text: "Your client opens a private link to approve milestones, leave feedback and download documents. No account, no password.",
+    points: ["One secure link per project", "Clients see only what you share", "Approve or request changes from one page"],
     tint: "#dcebe2",
     ink: "#3f6e5b",
+  },
+  {
+    icon: Mail,
+    title: "Invite by email",
+    text: "Send a client their private link straight from the app. If email isn't set up, copy the same link and send it yourself.",
+    points: ["Invite with a name and an email", "Invite links expire automatically", "Revoke access at any time"],
+    tint: "#e4eef7",
+    ink: "#3d6584",
   },
   {
     icon: Bot,
@@ -123,14 +142,6 @@ const FEATURES = [
     ink: "#6e4a78",
   },
   {
-    icon: DollarSign,
-    title: "Invoices that follow the work",
-    text: "An invoice is drafted the moment a milestone is approved. Send it, edit it, or let your client pay through Stripe.",
-    points: ["Created automatically on approval", "Stripe Checkout for clients", "A ledger of outstanding and collected"],
-    tint: "#f7ecc9",
-    ink: "#8a6418",
-  },
-  {
     icon: FileText,
     title: "Notes and files that think",
     text: "Explain, improve and extract tasks from notes. Upload a new version of a file and get an AI review of what changed.",
@@ -150,7 +161,7 @@ const FEATURES = [
     icon: MessageSquare,
     title: "Private by default",
     text: "Team discussion stays internal until you share it. Mention a teammate with @ and they are notified straight away.",
-    points: ["Internal unless you share", "@mentions notify the teammate", "Attach screenshots to messages"],
+    points: ["Internal unless you share", "@mentions send a live notification", "Attach screenshots to messages"],
     tint: "#f9e1d6",
     ink: "#a4502d",
   },
@@ -166,7 +177,8 @@ const AUDIENCE = [
 ];
 
 const FAQS = [
-  { q: "Do my clients need an account?", a: "No. They open a private link from your email and see only what you share with them." },
+  { q: "How do my clients get access?", a: "You invite them with their email, and they get a private link. You can also copy the link and send it yourself." },
+  { q: "Do my clients need an account?", a: "No. They open the private link and see only what you share with them." },
   { q: "Who sees my internal notes and team chat?", a: "Only your team. Everything stays internal until you choose to share it." },
   { q: "Does the AI send updates on its own?", a: "No. It drafts them, and you review, edit and press send." },
   { q: "Can I try it for free?", a: "Yes. No credit card is needed to get started." },
@@ -442,12 +454,12 @@ function FeatureExplorer() {
 /* ---------- Highlights: three bold cards under the features ---------- */
 
 function Highlights() {
-  const items = [
+    const items = [
     {
       icon: Bot,
       eyebrow: "AI",
       title: "Weekly updates in minutes, not evenings",
-      text: "Drafted from real progress, reviewed by you, then sent to the client's portal and their inbox.",
+      text: "Drafted from real progress, reviewed by you, then sent to the client's portal.",
       bg: "#1c1917",
       fg: "#faf7f2",
       accent: "#f6dccb",
@@ -462,10 +474,10 @@ function Highlights() {
       accent: "#a4502d",
     },
     {
-      icon: DollarSign,
-      eyebrow: "Payments",
-      title: "Get paid for approved work, automatically",
-      text: "Each approval drafts an invoice. Clients pay through Stripe Checkout, and you see what is still outstanding.",
+      icon: Sparkles,
+      eyebrow: "Onboarding",
+      title: "From a client email to a plan in seconds",
+      text: "Paste the brief. Review the milestones, prices and scope AI drafts, then add them to the project in one click.",
       bg: "#dcebe2",
       fg: "#1c1917",
       accent: "#3f6e5b",
