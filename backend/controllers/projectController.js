@@ -14,7 +14,7 @@ import ClientInvite from "../models/ClientInvite.js";
 import Task from "../models/Task.js";
 import { isValidMilestoneTransition } from "../middleware/projectAccess.js";
 import { createProjectNotifications, createNotification } from "../services/notificationService.js";
-import { sendEmail } from "../services/emailService.js";
+import { sendEmail, emailConfigured } from "../services/emailService.js";
 import {
   inviteEmail,
   milestoneDecisionEmail,
@@ -464,7 +464,7 @@ export const inviteClient = asyncHandler(async (req, res) => {
 
   const frontendOrigin = process.env.CLIENT_URL || "http://localhost:5173";
   const magicLink = `${frontendOrigin}/client/${project._id}/${rawToken}`;
-  const canSendEmail = process.env.SMTP_HOST && process.env.SMTP_PORT && process.env.SMTP_USER && process.env.SMTP_PASS;
+    const canSendEmail = emailConfigured();
   let emailSent = false;
   if (!canSendEmail) {
     console.log(`[Client invite] ${magicLink}`);
